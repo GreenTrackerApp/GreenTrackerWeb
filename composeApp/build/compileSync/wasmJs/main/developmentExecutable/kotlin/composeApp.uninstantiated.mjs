@@ -6091,6 +6091,21 @@ export async function instantiate(imports={}, runInitializer=true) {
                 mem8.set(src);
             }
         ,
+        'com.example.ui.screens.forceAppUpdate' : () => { 
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) { registration.unregister(); }
+                    if ('caches' in window) {
+                        caches.keys().then(function(names) {
+                            for (let name of names) caches.delete(name);
+                        });
+                    }
+                    window.location.reload(true);
+                });
+            } else {
+                window.location.reload(true);
+            }
+        },
         'com.example.util.decodeBase64ToJsArray' : (base64) => { const binary_string = window.atob(base64); const len = binary_string.length; const bytes = new Uint8Array(len); for (let i = 0; i < len; i++) { bytes[i] = binary_string.charCodeAt(i); } return bytes; },
         'com.example.util.showWebNotification' : (title, body) => { if (typeof Notification !== 'undefined') { new Notification(title, { body: body }); } },
         'com.example.util.getNotificationPermission' : () => { if (typeof Notification !== 'undefined') { return Notification.permission; } return 'denied'; },

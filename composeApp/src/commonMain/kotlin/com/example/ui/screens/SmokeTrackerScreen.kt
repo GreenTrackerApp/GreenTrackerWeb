@@ -36,6 +36,7 @@ import com.example.util.Base64
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
 import kotlinx.browser.document
+import kotlinx.browser.window
 import org.w3c.dom.HTMLAnchorElement
 import org.w3c.files.Blob
 import org.w3c.files.BlobPropertyBag
@@ -55,6 +56,23 @@ enum class AppTab {
 enum class HistoryFilter {
     ALL, WEEK, MONTH, YEAR
 }
+
+@JsFun("""() => { 
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) { registration.unregister(); }
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) caches.delete(name);
+                });
+            }
+            window.location.reload(true);
+        });
+    } else {
+        window.location.reload(true);
+    }
+}""")
+external fun forceAppUpdate(): Unit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,18 +105,21 @@ fun SmokeTrackerScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Icon(Icons.Default.Spa, null, modifier = Modifier.size(36.dp).clip(CircleShape), tint = MaterialTheme.colorScheme.primary)
-                        Text(
-                            text = "GreenTracker Web",
-                            style = if (activeTheme == CannabisTheme.PRIDE) {
-                                MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.Black,
-                                    brush = Brush.linearGradient(colors = listOf(Color(0xFFFF0000), Color(0xFFFF8C00), Color(0xFFFFD700), Color(0xFF32CD32), Color(0xFF1E90FF), Color(0xFF8A2BE2), Color(0xFFFF0000))),
-                                    letterSpacing = (-1).sp
-                                )
-                            } else {
-                                MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = (-0.5).sp)
-                            }
-                        )
+                        Column {
+                            Text(
+                                text = "GreenTracker Web",
+                                style = if (activeTheme == CannabisTheme.PRIDE) {
+                                    MaterialTheme.typography.headlineMedium.copy(
+                                        fontWeight = FontWeight.Black,
+                                        brush = Brush.linearGradient(colors = listOf(Color(0xFFFF0000), Color(0xFFFF8C00), Color(0xFFFFD700), Color(0xFF32CD32), Color(0xFF1E90FF), Color(0xFF8A2BE2), Color(0xFFFF0000))),
+                                        letterSpacing = (-1).sp
+                                    )
+                                } else {
+                                    MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = (-0.5).sp)
+                                }
+                            )
+                            Text("Pro Version v5.1", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        }
                     }
                 }
             }
@@ -237,7 +258,7 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
                         value = quickLogGrams.toFloat(), 
                         onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, 
                         valueRange = 0.1f..maxDosage.toFloat(), 
-                        steps = ((maxDosage - 0.1) * 10).toInt(),
+                        steps = if (maxDosage > 0.1) ((maxDosage - 0.1) * 10).toInt() else 0,
                         colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary)
                     )
                 }
@@ -345,57 +366,30 @@ fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.grap
 @Composable
 fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeViewModel, onEdit: (StrainEntry) -> Unit) {
     var search by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("All") }
-    var selectedRating by remember { mutableStateOf("All") }
-
-    val filtered = strains.filter { strain ->
-        val matchesSearch = strain.strainName.contains(search, ignoreCase = true) || strain.producerCultivar.contains(search, ignoreCase = true) || strain.category.contains(search, ignoreCase = true)
-        val matchesCategory = selectedCategory == "All" || strain.category == selectedCategory
-        val matchesRating = selectedRating == "All" || strain.rating == selectedRating
-        matchesSearch && matchesCategory && matchesRating
-    }
+    var selCat by remember { mutableStateOf("All") }
+    var selRat by remember { mutableStateOf("All") }
+    val filtered = strains.filter { (it.strainName.contains(search, true) || it.producerCultivar.contains(search, true) || it.category.contains(search, true)) && (selCat == "All" || it.category == selCat) && (selRat == "All" || it.rating == selRat) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        OutlinedTextField(
-            value = search, 
-            onValueChange = { search = it }, 
-            modifier = Modifier.fillMaxWidth(), 
-            placeholder = { Text("Search strains or producers...".translate(lang)) }, 
-            leadingIcon = { Icon(Icons.Default.Search, null) }, 
-            shape = RoundedCornerShape(16.dp)
-        )
-        
+        OutlinedTextField(value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search strains or producers...".translate(lang)) }, leadingIcon = { Icon(Icons.Default.Search, null) }, shape = RoundedCornerShape(16.dp))
         Spacer(modifier = Modifier.height(12.dp))
-
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Indica", "Sativa", "Hybrid").forEach { cat ->
-                FilterChip(
-                    selected = selectedCategory == cat,
-                    onClick = { selectedCategory = cat },
-                    label = { Text(cat.translate(lang)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = when(cat) {
-                            "Indica" -> Color(0xFF6A1B9A); "Sativa" -> Color(0xFFE65100); "Hybrid" -> Color(0xFF1B5E20); else -> MaterialTheme.colorScheme.primary
-                        },
-                        selectedLabelColor = Color.White
-                    )
-                )
+                FilterChip(selected = selCat == cat, onClick = { selCat = cat }, label = { Text(cat.translate(lang)) })
             }
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("All", "THUMBS_UP", "NEUTRAL", "THUMBS_DOWN").forEach { rate ->
-                val (label, icon) = when(rate) {
+            listOf("All", "THUMBS_UP", "NEUTRAL", "THUMBS_DOWN").forEach { rat ->
+                val (label, icon) = when(rat) {
                     "THUMBS_UP" -> "Recommended" to Icons.Default.ThumbUp
                     "NEUTRAL" -> "Neutral" to Icons.Default.SentimentNeutral
                     "THUMBS_DOWN" -> "Avoid" to Icons.Default.ThumbDown
                     else -> "All Ratings" to Icons.Default.Star
                 }
                 FilterChip(
-                    selected = selectedRating == rate,
-                    onClick = { selectedRating = rate },
+                    selected = selRat == rat, 
+                    onClick = { selRat = rat }, 
                     label = { 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(icon, null, modifier = Modifier.size(16.dp))
@@ -406,9 +400,7 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                 )
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
             items(filtered) { strain ->
                 var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -421,7 +413,6 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                         dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }
                     )
                 }
-
                 Card(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -459,14 +450,14 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                                         else -> Triple(Icons.Default.ThumbUp, Color(0xFF2E7D32), Color(0xFFE8F5E9))
                                     }
                                     Surface(shape = CircleShape, color = bg, border = BorderStroke(1.dp, color.copy(alpha = 0.5f))) {
-                                        Icon(icon, null, modifier = Modifier.padding(6.dp).size(16.dp), tint = color)
+                                         Icon(icon, null, modifier = Modifier.padding(6.dp).size(16.dp), tint = color)
                                     }
                                 }
                                 if (strain.producerCultivar.isNotEmpty()) Text(strain.producerCultivar, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(strain.category, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = when(strain.category){"Indica" -> Color(0xFF6A1B9A); "Sativa" -> Color(0xFFE65100); else -> Color(0xFF1B5E20)})
-                                    if (strain.thcPercentage > 0) Text("THC ${strain.thcPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    if (strain.cbdPercentage > 0) Text("CBD ${strain.cbdPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                     Text(strain.category, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = when(strain.category){"Indica" -> Color(0xFF6A1B9A); "Sativa" -> Color(0xFFE65100); else -> Color(0xFF1B5E20)})
+                                     if (strain.thcPercentage > 0) Text("THC ${strain.thcPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                     if (strain.cbdPercentage > 0) Text("CBD ${strain.cbdPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             IconButton(onClick = { onEdit(strain) }) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
@@ -601,7 +592,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                             title = { Text("Permanently Delete?".translate(lang)) },
                             text = { Text("This entry will be removed forever.".translate(lang)) },
                             confirmButton = { Button(onClick = { viewModel.permanentlyDeleteStrain(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
-                            dismissButton = { TextButton(onClick = { showPermDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }
+                            dismissButton = { TextButton(onClick = { showClearAllConfirm = false }) { Text("Cancel".translate(lang)) } }
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -618,7 +609,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             CollapsibleSettingsCard("App Maintenance".translate(lang), expandedSection == "maint", onToggle = { expandedSection = if (expandedSection == "maint") null else "maint" }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Check for updates or refresh the app cache.".translate(lang), style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { kotlinx.browser.window.location.reload() }, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = { forceAppUpdate() }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh".translate(lang))
                     }
                 }
@@ -705,12 +696,12 @@ fun EditSessionDialog(session: SmokeSession, lang: String, maxDosage: Double, on
     var timestamp by remember { mutableStateOf(session.timestamp) }
 
     AlertDialog(
-        onDismissRequest = { /* Prevent closing on outside click */ },
+        onDismissRequest = { /* Lock */ },
         title = { Text("Edit Session".translate(lang), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Amount: ${grams.format(1)}g", fontWeight = FontWeight.Bold)
-                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..maxDosage.toFloat(), steps = ((maxDosage - 0.1) * 10).toInt())
+                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..maxDosage.toFloat(), steps = if (maxDosage > 0.1) ((maxDosage - 0.1) * 10).toInt() else 0)
                 TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain") }, modifier = Modifier.fillMaxWidth())
                 TextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
                 
@@ -749,12 +740,12 @@ fun AddManualSessionDialog(initialGrams: Double, lang: String, maxDosage: Double
     var notes by remember { mutableStateOf("") }
     var timestamp by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
     AlertDialog(
-        onDismissRequest = { /* Prevent closing on outside click */ },
+        onDismissRequest = { /* Lock */ },
         title = { Text("Log Session", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Amount: ${grams.format(1)}g", fontWeight = FontWeight.Bold)
-                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..maxDosage.toFloat(), steps = ((maxDosage - 0.1) * 10).toInt())
+                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..maxDosage.toFloat(), steps = if (maxDosage > 0.1) ((maxDosage - 0.1) * 10).toInt() else 0)
                 
                 Text("Time:".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 val instant = Instant.fromEpochMilliseconds(timestamp)
@@ -798,7 +789,7 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, onDismiss: () -> Un
     var cbdText by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toString() else "") }
     var nts by remember { mutableStateOf(initial?.notes ?: "") }
     AlertDialog(
-        onDismissRequest = { /* Prevent closing on outside click */ },
+        onDismissRequest = { /* Lock */ },
         title = { Text(if (initial == null) "Add Strain" else "Edit Strain", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
