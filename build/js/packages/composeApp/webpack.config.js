@@ -25,6 +25,7 @@ config.output = {
     libraryTarget: "umd",
     globalObject: "globalThis"
 };
+config.output.path = require('path').resolve(__dirname, "../../../../composeApp/build/kotlin-webpack/wasmJs/developmentExecutable")
 // source maps
 config.module.rules.push({
         test: /\.m?js$/,
@@ -36,21 +37,6 @@ config.ignoreWarnings = [
     /Failed to parse source map/,
     /Accessing import\.meta directly is unsupported \(only property access or destructuring is supported\)/
 ]
-
-// dev server
-config.devServer = {
-  "open": true,
-  "static": [
-    "kotlin",
-    "../../../../composeApp/build/processedResources/wasmJs/main"
-  ],
-  "client": {
-    "overlay": {
-      "errors": true,
-      "warnings": false
-    }
-  }
-};
 
 // noinspection JSUnnecessarySemicolon
 ;(function(config) {

@@ -46,6 +46,7 @@ import org.w3c.files.get
 import kotlin.js.*
 
 import org.jetbrains.skia.Image as SkiaImage
+import org.jetbrains.skia.Bitmap as SkiaBitmap
 
 enum class AppTab {
     HOME, HISTORY, STATS, JOURNAL, SETTINGS
@@ -344,30 +345,57 @@ fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.grap
 @Composable
 fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeViewModel, onEdit: (StrainEntry) -> Unit) {
     var search by remember { mutableStateOf("") }
-    var selCat by remember { mutableStateOf("All") }
-    var selRat by remember { mutableStateOf("All") }
-    val filtered = strains.filter { (it.strainName.contains(search, true) || it.producerCultivar.contains(search, true) || it.category.contains(search, true)) && (selCat == "All" || it.category == selCat) && (selRat == "All" || it.rating == selRat) }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var selectedRating by remember { mutableStateOf("All") }
+
+    val filtered = strains.filter { strain ->
+        val matchesSearch = strain.strainName.contains(search, ignoreCase = true) || strain.producerCultivar.contains(search, ignoreCase = true) || strain.category.contains(search, ignoreCase = true)
+        val matchesCategory = selectedCategory == "All" || strain.category == selectedCategory
+        val matchesRating = selectedRating == "All" || strain.rating == selectedRating
+        matchesSearch && matchesCategory && matchesRating
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        OutlinedTextField(value = search, onValueChange = { search = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search strains or producers...".translate(lang)) }, leadingIcon = { Icon(Icons.Default.Search, null) }, shape = RoundedCornerShape(16.dp))
+        OutlinedTextField(
+            value = search, 
+            onValueChange = { search = it }, 
+            modifier = Modifier.fillMaxWidth(), 
+            placeholder = { Text("Search strains or producers...".translate(lang)) }, 
+            leadingIcon = { Icon(Icons.Default.Search, null) }, 
+            shape = RoundedCornerShape(16.dp)
+        )
+        
         Spacer(modifier = Modifier.height(12.dp))
+
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "Indica", "Sativa", "Hybrid").forEach { cat ->
-                FilterChip(selected = selCat == cat, onClick = { selCat = cat }, label = { Text(cat.translate(lang)) })
+                FilterChip(
+                    selected = selectedCategory == cat,
+                    onClick = { selectedCategory = cat },
+                    label = { Text(cat.translate(lang)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = when(cat) {
+                            "Indica" -> Color(0xFF6A1B9A); "Sativa" -> Color(0xFFE65100); "Hybrid" -> Color(0xFF1B5E20); else -> MaterialTheme.colorScheme.primary
+                        },
+                        selectedLabelColor = Color.White
+                    )
+                )
             }
         }
+
         Spacer(modifier = Modifier.height(8.dp))
+
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("All", "THUMBS_UP", "NEUTRAL", "THUMBS_DOWN").forEach { rat ->
-                val (label, icon) = when(rat) {
+            listOf("All", "THUMBS_UP", "NEUTRAL", "THUMBS_DOWN").forEach { rate ->
+                val (label, icon) = when(rate) {
                     "THUMBS_UP" -> "Recommended" to Icons.Default.ThumbUp
                     "NEUTRAL" -> "Neutral" to Icons.Default.SentimentNeutral
                     "THUMBS_DOWN" -> "Avoid" to Icons.Default.ThumbDown
-                    else -> "All" to Icons.Default.Star
+                    else -> "All Ratings" to Icons.Default.Star
                 }
                 FilterChip(
-                    selected = selRat == rat, 
-                    onClick = { selRat = rat }, 
+                    selected = selectedRating == rate,
+                    onClick = { selectedRating = rate },
                     label = { 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(icon, null, modifier = Modifier.size(16.dp))
@@ -378,19 +406,22 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                 )
             }
         }
+
         Spacer(modifier = Modifier.height(16.dp))
+
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
             items(filtered) { strain ->
                 var showDeleteConfirm by remember { mutableStateOf(false) }
                 if (showDeleteConfirm) {
                     AlertDialog(
-                        onDismissRequest = { /* Prevent closing on outside click */ },
+                        onDismissRequest = { /* Lock */ },
                         title = { Text("Delete Entry?".translate(lang)) },
                         text = { Text("Move this entry to the trash?".translate(lang)) },
                         confirmButton = { Button(onClick = { viewModel.deleteStrain(strain.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete".translate(lang)) } },
                         dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }
                     )
                 }
+
                 Card(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -400,7 +431,8 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                                         try {
                                             val base64Data = if (strain.photoUri.contains(",")) strain.photoUri.split(",")[1] else strain.photoUri
                                             val bytes = com.example.util.Base64.decode(base64Data)
-                                            SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
+                                            val skiaImg = SkiaImage.makeFromEncoded(bytes)
+                                            skiaImg.toComposeImageBitmap()
                                         } catch (e: Exception) { null }
                                     }
                                     if (imageBitmap != null) {
@@ -427,14 +459,14 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                                         else -> Triple(Icons.Default.ThumbUp, Color(0xFF2E7D32), Color(0xFFE8F5E9))
                                     }
                                     Surface(shape = CircleShape, color = bg, border = BorderStroke(1.dp, color.copy(alpha = 0.5f))) {
-                                         Icon(icon, null, modifier = Modifier.padding(6.dp).size(16.dp), tint = color)
+                                        Icon(icon, null, modifier = Modifier.padding(6.dp).size(16.dp), tint = color)
                                     }
                                 }
                                 if (strain.producerCultivar.isNotEmpty()) Text(strain.producerCultivar, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                     Text(strain.category, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = when(strain.category){"Indica" -> Color(0xFF6A1B9A); "Sativa" -> Color(0xFFE65100); else -> Color(0xFF1B5E20)})
-                                     if (strain.thcPercentage > 0) Text("THC ${strain.thcPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                     if (strain.cbdPercentage > 0) Text("CBD ${strain.cbdPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(strain.category, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = when(strain.category){"Indica" -> Color(0xFF6A1B9A); "Sativa" -> Color(0xFFE65100); else -> Color(0xFF1B5E20)})
+                                    if (strain.thcPercentage > 0) Text("THC ${strain.thcPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    if (strain.cbdPercentage > 0) Text("CBD ${strain.cbdPercentage}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             IconButton(onClick = { onEdit(strain) }) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
@@ -462,7 +494,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
 
     if (showClearAllConfirm) {
         AlertDialog(
-            onDismissRequest = { /* Prevent closing on outside click */ },
+            onDismissRequest = { /* Lock */ },
             title = { Text("Clear All Data?".translate(lang), color = MaterialTheme.colorScheme.error) },
             text = { Text("This will permanently delete all logs and entries. This action cannot be undone!".translate(lang)) },
             confirmButton = { Button(onClick = { viewModel.clearAll(); showClearAllConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Everything".translate(lang)) } },
@@ -472,13 +504,13 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp)) {
         item { Text("Application Settings".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        item { CollapsibleSettingsCard("Language".translate(lang), expandedSection == "lang", onToggle = { expandedSection = if (expandedSection == "lang") null else "lang" }) {
+        item { CollapsibleSettingsCard("Language Settings".translate(lang), expandedSection == "lang", onToggle = { expandedSection = if (expandedSection == "lang") null else "lang" }) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = lang == "en", onClick = { viewModel.setLanguage("en") }, label = { Text("English") })
                 FilterChip(selected = lang == "de", onClick = { viewModel.setLanguage("de") }, label = { Text("Deutsch") })
             }
         } }
-        item { CollapsibleSettingsCard("Theme".translate(lang), expandedSection == "theme", onToggle = { expandedSection = if (expandedSection == "theme") null else "theme" }) {
+        item { CollapsibleSettingsCard("Theme Settings".translate(lang), expandedSection == "theme", onToggle = { expandedSection = if (expandedSection == "theme") null else "theme" }) {
             val themeList = CannabisTheme.entries.toList()
             themeList.forEach { theme ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { viewModel.setTheme(theme) }.padding(vertical = 4.dp)) {
@@ -487,8 +519,12 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                 }
             }
         } }
+        item { CollapsibleSettingsCard("Day Rhythm".translate(lang), expandedSection == "rhythm", onToggle = { expandedSection = if (expandedSection == "rhythm") null else "rhythm" }) {
+            Text("Start of Day".translate(lang) + ": ${dayRhythm.toString().padStart(2, '0')}:00", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Slider(value = dayRhythm.toFloat(), onValueChange = { viewModel.setDayRhythm(it.toInt()) }, valueRange = 0f..23f, steps = 23)
+        } }
         item { CollapsibleSettingsCard("Notifications".translate(lang), expandedSection == "notif", onToggle = { expandedSection = if (expandedSection == "notif") null else "notif" }) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Reminders:".translate(lang), fontWeight = FontWeight.Bold)
                 listOf(0 to "Off", 1 to "1h", 2 to "2h", 4 to "4h", 8 to "8h").forEach { (h, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { viewModel.setReminderInterval(h) }) {
@@ -496,7 +532,6 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                         Text(label.translate(lang))
                     }
                 }
-                
                 Spacer(modifier = Modifier.height(8.dp))
                 val quickLogGrams by viewModel.quickLogGrams.collectAsState()
                 Text("Quick Log Amount".translate(lang), fontWeight = FontWeight.Bold)
@@ -504,7 +539,6 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     Slider(value = quickLogGrams.toFloat(), onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49, modifier = Modifier.weight(1f))
                     Text(quickLogGrams.format(1) + "g", modifier = Modifier.width(48.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                 }
-
                 Button(onClick = { com.example.util.NotificationHelper.requestPermission(); com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active! 🌿") }, modifier = Modifier.fillMaxWidth()) { Text("Test Notification") }
             }
         } }
@@ -512,7 +546,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item {
             CollapsibleSettingsCard("Daily Dosage Limit".translate(lang), expandedSection == "limit", onToggle = { expandedSection = if (expandedSection == "limit") null else "limit" }) {
                 Text(dailyGoalGrams.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Slider(value = dailyGoalGrams.toFloat(), onValueChange = { viewModel.setDailyGoal(it.toDouble()) }, valueRange = 0.5f..5.0f)
+                Slider(value = dailyGoalGrams.toFloat(), onValueChange = { viewModel.setDailyGoal(it.toDouble()) }, valueRange = 0.5f..10.0f, steps = 95)
             }
         }
 
@@ -520,14 +554,14 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             val maxDosage by viewModel.widgetMaxDosage.collectAsState()
             CollapsibleSettingsCard("Slider Max Range".translate(lang), expandedSection == "max_dos", onToggle = { expandedSection = if (expandedSection == "max_dos") null else "max_dos" }) {
                 Text(maxDosage.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Slider(value = maxDosage.toFloat(), onValueChange = { viewModel.setWidgetMaxDosage(it.toDouble()) }, valueRange = 0.5f..5.0f, steps = 45)
+                Slider(value = maxDosage.toFloat(), onValueChange = { viewModel.setWidgetMaxDosage(it.toDouble()) }, valueRange = 0.5f..10.0f, steps = 95)
             }
         }
 
-        item { CollapsibleSettingsCard("Backup".translate(lang), expandedSection == "backup", onToggle = { expandedSection = if (expandedSection == "backup") null else "backup" }) {
+        item { CollapsibleSettingsCard("Backup & Restore".translate(lang), expandedSection == "backup", onToggle = { expandedSection = if (expandedSection == "backup") null else "backup" }) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { triggerDownload("GreenTracker_Backup.json", viewModel.createBackupJson()) }, modifier = Modifier.weight(1f)) { Text("Save") }
-                Button(onClick = { triggerFilePicker { viewModel.importBackupJson(it) } }, modifier = Modifier.weight(1f)) { Text("Import") }
+                Button(onClick = { triggerDownload("GreenTracker_Backup.json", viewModel.createBackupJson()) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Save, null); Text("Save") }
+                Button(onClick = { triggerFilePicker { viewModel.importBackupJson(it) } }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Publish, null); Text("Import") }
             }
         } }
         item { CollapsibleSettingsCard("Trash".translate(lang), expandedSection == "trash", badgeCount = trashedSessions.size + trashedStrains.size, onToggle = { expandedSection = if (expandedSection == "trash") null else "trash" }) {
@@ -544,7 +578,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     var showPermDeleteConfirm by remember { mutableStateOf(false) }
                     if (showPermDeleteConfirm) {
                         AlertDialog(
-                            onDismissRequest = { /* Prevent closing on outside click */ },
+                            onDismissRequest = { /* Lock */ },
                             title = { Text("Permanently Delete?".translate(lang)) },
                             text = { Text("This will be gone forever!".translate(lang)) },
                             confirmButton = { Button(onClick = { viewModel.permanentlyDeleteSession(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
@@ -563,7 +597,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     var showPermDeleteConfirm by remember { mutableStateOf(false) }
                     if (showPermDeleteConfirm) {
                         AlertDialog(
-                            onDismissRequest = { /* Prevent closing on outside click */ },
+                            onDismissRequest = { /* Lock */ },
                             title = { Text("Permanently Delete?".translate(lang)) },
                             text = { Text("This entry will be removed forever.".translate(lang)) },
                             confirmButton = { Button(onClick = { viewModel.permanentlyDeleteStrain(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
@@ -579,7 +613,18 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             }
             Button(onClick = { viewModel.emptyAllTrash() }, modifier = Modifier.fillMaxWidth().padding(top = 16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Empty Trash") }
         } }
-        item { Button(onClick = { kotlinx.browser.window.location.reload() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh") } }
+
+        item { 
+            CollapsibleSettingsCard("App Maintenance".translate(lang), expandedSection == "maint", onToggle = { expandedSection = if (expandedSection == "maint") null else "maint" }) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Check for updates or refresh the app cache.".translate(lang), style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = { kotlinx.browser.window.location.reload() }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh".translate(lang))
+                    }
+                }
+            }
+        }
+
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { expandedSection = if (expandedSection == "danger") null else "danger" }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data") }
         } }
@@ -621,7 +666,7 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
     var showEditDialog by remember { mutableStateOf(false) }
     if (showDeleteConfirm) {
         AlertDialog(
-            onDismissRequest = { /* Prevent closing on outside click */ },
+            onDismissRequest = { /* Lock */ },
             title = { Text("Delete Session?".translate(lang)) },
             text = { Text("Move this log to the trash?".translate(lang)) },
             confirmButton = { Button(onClick = { onDelete(session.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete".translate(lang)) } },
