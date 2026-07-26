@@ -46,6 +46,9 @@ class SmokeViewModel(
     private val _dailyGoalGrams = MutableStateFlow(settings.getFloat("daily_goal_grams", 2.0f).toDouble())
     val dailyGoalGrams: StateFlow<Double> = _dailyGoalGrams.asStateFlow()
 
+    private val _widgetMaxDosage = MutableStateFlow(settings.getFloat("widget_max_dosage", 2.0f).toDouble())
+    val widgetMaxDosage: StateFlow<Double> = _widgetMaxDosage.asStateFlow()
+
     // Quick Log Amount
     private val _quickLogGrams = MutableStateFlow(settings.getFloat("quick_track_grams", 0.2f).toDouble())
     val quickLogGrams: StateFlow<Double> = _quickLogGrams.asStateFlow()
@@ -180,6 +183,11 @@ class SmokeViewModel(
     fun setDailyGoal(grams: Double) {
         _dailyGoalGrams.value = grams
         settings.putFloat("daily_goal_grams", grams.toFloat())
+    }
+    fun setWidgetMaxDosage(grams: Double) {
+        val rounded = grams.roundToDecimals(1)
+        _widgetMaxDosage.value = rounded
+        settings.putFloat("widget_max_dosage", rounded.toFloat())
     }
     fun setReminderInterval(hours: Int) {
         _reminderInterval.value = hours

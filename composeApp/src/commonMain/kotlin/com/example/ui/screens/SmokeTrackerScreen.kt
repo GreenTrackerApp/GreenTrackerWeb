@@ -150,7 +150,8 @@ fun SmokeTrackerScreen(
     }
 
     if (showAddManualDialog) {
-        AddManualSessionDialog(manualAddInitialGrams, activeLanguage, activeTheme, onDismiss = { showAddManualDialog = false }) { g, s, n, t ->
+        val maxDosage by viewModel.widgetMaxDosage.collectAsState()
+        AddManualSessionDialog(manualAddInitialGrams, activeLanguage, maxDosage, activeTheme, onDismiss = { showAddManualDialog = false }) { g, s, n, t ->
             viewModel.logSession(g, s, n, t)
             showAddManualDialog = false
         }
@@ -188,6 +189,7 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
     val totalTodayGrams = sessionsToday.sumOf { it.grams }
     val progress = if (dailyGoalGrams > 0.0) (totalTodayGrams / dailyGoalGrams).toFloat().coerceIn(0f, 1f) else 0f
     val quickLogGrams by viewModel.quickLogGrams.collectAsState()
+    val maxDosage by viewModel.widgetMaxDosage.collectAsState()
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
         item {
@@ -233,8 +235,8 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
                     Slider(
                         value = quickLogGrams.toFloat(), 
                         onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, 
-                        valueRange = 0.1f..3.0f, 
-                        steps = 28,
+                        valueRange = 0.1f..maxDosage.toFloat(), 
+                        steps = ((maxDosage - 0.1) * 10).toInt(),
                         colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary)
                     )
                 }
@@ -242,8 +244,8 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
         }
 
         item { Text("Today's Logs Preview".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) }
-        items(sessionsToday.take(5)) { smokeSessionItem ->
-            SessionItemRow(smokeSessionItem, lang, onDelete = { viewModel.deleteSession(smokeSessionItem.id) }, onEdit = { viewModel.updateSession(it) })
+        items(sessionsToday.take(5)) { sItem ->
+            SessionItemRow(sItem, lang, viewModel, onDelete = { viewModel.deleteSession(sItem.id) }, onEdit = { viewModel.updateSession(it) })
         }
     }
 }
@@ -280,7 +282,7 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
         LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             grouped.forEach { (date, sessions) ->
                 item { Text(date, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp)) }
-                items(sessions) { s -> SessionItemRow(s, lang, onDelete = { viewModel.deleteSession(s.id) }, onEdit = { viewModel.updateSession(it) }) }
+                items(sessions) { sItem -> SessionItemRow(sItem, lang, viewModel, onDelete = { viewModel.deleteSession(sItem.id) }, onEdit = { viewModel.updateSession(sItem) }) }
             }
         }
     }
@@ -382,7 +384,7 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                 var showDeleteConfirm by remember { mutableStateOf(false) }
                 if (showDeleteConfirm) {
                     AlertDialog(
-                        onDismissRequest = { showDeleteConfirm = false },
+                        onDismissRequest = { /* Prevent closing on outside click */ },
                         title = { Text("Delete Entry?".translate(lang)) },
                         text = { Text("Move this entry to the trash?".translate(lang)) },
                         confirmButton = { Button(onClick = { viewModel.deleteStrain(strain.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete".translate(lang)) } },
@@ -460,7 +462,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
 
     if (showClearAllConfirm) {
         AlertDialog(
-            onDismissRequest = { showClearAllConfirm = false },
+            onDismissRequest = { /* Prevent closing on outside click */ },
             title = { Text("Clear All Data?".translate(lang), color = MaterialTheme.colorScheme.error) },
             text = { Text("This will permanently delete all logs and entries. This action cannot be undone!".translate(lang)) },
             confirmButton = { Button(onClick = { viewModel.clearAll(); showClearAllConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Everything".translate(lang)) } },
@@ -486,7 +488,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             }
         } }
         item { CollapsibleSettingsCard("Notifications".translate(lang), expandedSection == "notif", onToggle = { expandedSection = if (expandedSection == "notif") null else "notif" }) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Reminders:".translate(lang), fontWeight = FontWeight.Bold)
                 listOf(0 to "Off", 1 to "1h", 2 to "2h", 4 to "4h", 8 to "8h").forEach { (h, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { viewModel.setReminderInterval(h) }) {
@@ -506,6 +508,22 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                 Button(onClick = { com.example.util.NotificationHelper.requestPermission(); com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active! 🌿") }, modifier = Modifier.fillMaxWidth()) { Text("Test Notification") }
             }
         } }
+
+        item {
+            CollapsibleSettingsCard("Daily Dosage Limit".translate(lang), expandedSection == "limit", onToggle = { expandedSection = if (expandedSection == "limit") null else "limit" }) {
+                Text(dailyGoalGrams.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Slider(value = dailyGoalGrams.toFloat(), onValueChange = { viewModel.setDailyGoal(it.toDouble()) }, valueRange = 0.5f..5.0f)
+            }
+        }
+
+        item {
+            val maxDosage by viewModel.widgetMaxDosage.collectAsState()
+            CollapsibleSettingsCard("Slider Max Range".translate(lang), expandedSection == "max_dos", onToggle = { expandedSection = if (expandedSection == "max_dos") null else "max_dos" }) {
+                Text(maxDosage.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Slider(value = maxDosage.toFloat(), onValueChange = { viewModel.setWidgetMaxDosage(it.toDouble()) }, valueRange = 0.5f..5.0f, steps = 45)
+            }
+        }
+
         item { CollapsibleSettingsCard("Backup".translate(lang), expandedSection == "backup", onToggle = { expandedSection = if (expandedSection == "backup") null else "backup" }) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { triggerDownload("GreenTracker_Backup.json", viewModel.createBackupJson()) }, modifier = Modifier.weight(1f)) { Text("Save") }
@@ -513,12 +531,20 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             }
         } }
         item { CollapsibleSettingsCard("Trash".translate(lang), expandedSection == "trash", badgeCount = trashedSessions.size + trashedStrains.size, onToggle = { expandedSection = if (expandedSection == "trash") null else "trash" }) {
+            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.HourglassBottom, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    Text("Deleted items are automatically removed after 7 days.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
             CollapsibleSubSection("Sessions".translate(lang), isSessionsTrashExpanded, onToggle = { isSessionsTrashExpanded = !isSessionsTrashExpanded }) {
                 trashedSessions.forEach { s ->
                     var showPermDeleteConfirm by remember { mutableStateOf(false) }
                     if (showPermDeleteConfirm) {
                         AlertDialog(
-                            onDismissRequest = { showPermDeleteConfirm = false },
+                            onDismissRequest = { /* Prevent closing on outside click */ },
                             title = { Text("Permanently Delete?".translate(lang)) },
                             text = { Text("This will be gone forever!".translate(lang)) },
                             confirmButton = { Button(onClick = { viewModel.permanentlyDeleteSession(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
@@ -527,8 +553,8 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("${s.grams}g - ${s.strain}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        IconButton(onClick = { viewModel.restoreSession(s.id) }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = { showPermDeleteConfirm = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) }
+                        IconButton(onClick = { viewModel.restoreSession(s.id) }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) }
+                        IconButton(onClick = { showPermDeleteConfirm = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) }
                     }
                 }
             }
@@ -537,7 +563,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     var showPermDeleteConfirm by remember { mutableStateOf(false) }
                     if (showPermDeleteConfirm) {
                         AlertDialog(
-                            onDismissRequest = { showPermDeleteConfirm = false },
+                            onDismissRequest = { /* Prevent closing on outside click */ },
                             title = { Text("Permanently Delete?".translate(lang)) },
                             text = { Text("This entry will be removed forever.".translate(lang)) },
                             confirmButton = { Button(onClick = { viewModel.permanentlyDeleteStrain(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
@@ -546,12 +572,12 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(s.strainName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        IconButton(onClick = { viewModel.restoreStrain(s) }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = { showPermDeleteConfirm = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) }
+                        IconButton(onClick = { viewModel.restoreStrain(s) }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) }
+                        IconButton(onClick = { showPermDeleteConfirm = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) }
                     }
                 }
             }
-            Button(onClick = { viewModel.emptyAllTrash() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Empty Trash") }
+            Button(onClick = { viewModel.emptyAllTrash() }, modifier = Modifier.fillMaxWidth().padding(top = 16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Empty Trash") }
         } }
         item { Button(onClick = { kotlinx.browser.window.location.reload() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh") } }
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { expandedSection = if (expandedSection == "danger") null else "danger" }) {
@@ -590,12 +616,12 @@ fun CollapsibleSettingsCard(title: String, isExpanded: Boolean, badgeCount: Int 
 }
 
 @Composable
-fun SessionItemRow(session: SmokeSession, lang: String, onDelete: (Long) -> Unit, onEdit: ((SmokeSession) -> Unit)? = null) {
+fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewModel, onDelete: (Long) -> Unit, onEdit: ((SmokeSession) -> Unit)? = null) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     if (showDeleteConfirm) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
+            onDismissRequest = { /* Prevent closing on outside click */ },
             title = { Text("Delete Session?".translate(lang)) },
             text = { Text("Move this log to the trash?".translate(lang)) },
             confirmButton = { Button(onClick = { onDelete(session.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete".translate(lang)) } },
@@ -603,7 +629,8 @@ fun SessionItemRow(session: SmokeSession, lang: String, onDelete: (Long) -> Unit
         )
     }
     if (showEditDialog) {
-        EditSessionDialog(session, lang, onDismiss = { showEditDialog = false }, onSave = { onEdit?.invoke(it); showEditDialog = false })
+        val maxDosage by viewModel.widgetMaxDosage.collectAsState()
+        EditSessionDialog(session, lang, maxDosage, onDismiss = { showEditDialog = false }, onSave = { onEdit?.invoke(it); showEditDialog = false })
     }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -626,19 +653,19 @@ fun SessionItemRow(session: SmokeSession, lang: String, onDelete: (Long) -> Unit
 }
 
 @Composable
-fun EditSessionDialog(session: SmokeSession, lang: String, onDismiss: () -> Unit, onSave: (SmokeSession) -> Unit) {
+fun EditSessionDialog(session: SmokeSession, lang: String, maxDosage: Double, onDismiss: () -> Unit, onSave: (SmokeSession) -> Unit) {
     var grams by remember { mutableStateOf(session.grams) }
     var strain by remember { mutableStateOf(session.strain) }
     var notes by remember { mutableStateOf(session.notes) }
     var timestamp by remember { mutableStateOf(session.timestamp) }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { /* Prevent closing on outside click */ },
         title = { Text("Edit Session".translate(lang), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Amount: ${grams.format(1)}g", fontWeight = FontWeight.Bold)
-                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..3.0f, steps = 28)
+                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..maxDosage.toFloat(), steps = ((maxDosage - 0.1) * 10).toInt())
                 TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain") }, modifier = Modifier.fillMaxWidth())
                 TextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
                 
@@ -671,18 +698,18 @@ fun EditSessionDialog(session: SmokeSession, lang: String, onDismiss: () -> Unit
 }
 
 @Composable
-fun AddManualSessionDialog(initialGrams: Double, lang: String, theme: CannabisTheme, onDismiss: () -> Unit, onSave: (Double, String, String, Long) -> Unit) {
+fun AddManualSessionDialog(initialGrams: Double, lang: String, maxDosage: Double, theme: CannabisTheme, onDismiss: () -> Unit, onSave: (Double, String, String, Long) -> Unit) {
     var grams by remember { mutableStateOf(initialGrams) }
     var strain by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var timestamp by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { /* Prevent closing on outside click */ },
         title = { Text("Log Session", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Amount: ${grams.format(1)}g", fontWeight = FontWeight.Bold)
-                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..3.0f, steps = 28)
+                Slider(value = grams.toFloat(), onValueChange = { grams = (it * 10).toInt() / 10.0 }, valueRange = 0.1f..maxDosage.toFloat(), steps = ((maxDosage - 0.1) * 10).toInt())
                 
                 Text("Time:".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 val instant = Instant.fromEpochMilliseconds(timestamp)
@@ -710,7 +737,8 @@ fun AddManualSessionDialog(initialGrams: Double, lang: String, theme: CannabisTh
                 TextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { Button(onClick = { onSave(grams, strain, notes, timestamp) }) { Text("Save") } }
+        confirmButton = { Button(onClick = { onSave(grams, strain, notes, timestamp) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
@@ -725,7 +753,7 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, onDismiss: () -> Un
     var cbdText by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toString() else "") }
     var nts by remember { mutableStateOf(initial?.notes ?: "") }
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { /* Prevent closing on outside click */ },
         title = { Text(if (initial == null) "Add Strain" else "Edit Strain", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -750,7 +778,8 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, onDismiss: () -> Un
                 TextField(value = nts, onValueChange = { nts = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
             }
         },
-        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onSave(name, prod, cat, thcText.toDoubleOrNull() ?: 0.0, cbdText.toDoubleOrNull() ?: 0.0, rat, nts, photo) }) { Text("Save") } }
+        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onSave(name, prod, cat, thcText.toDoubleOrNull() ?: 0.0, cbdText.toDoubleOrNull() ?: 0.0, rat, nts, photo) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
