@@ -30,21 +30,31 @@ class SmokeViewModel(
     private val settings: Settings = Settings()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
+    // Current Theme State
     private val _activeTheme = MutableStateFlow(loadSavedTheme())
     val activeTheme: StateFlow<CannabisTheme> = _activeTheme.asStateFlow()
 
+    // Language State ("en" or "de")
     private val _language = MutableStateFlow(loadSavedLanguage())
     val language: StateFlow<String> = _language.asStateFlow()
 
+    // Day Rhythm State (0-23 hours, default 4 AM)
     private val _dayRhythmHours = MutableStateFlow(loadSavedDayRhythm())
     val dayRhythmHours: StateFlow<Int> = _dayRhythmHours.asStateFlow()
 
+    // Daily Goal
     private val _dailyGoalGrams = MutableStateFlow(settings.getFloat("daily_goal_grams", 2.0f).toDouble())
     val dailyGoalGrams: StateFlow<Double> = _dailyGoalGrams.asStateFlow()
 
+    // Quick Log Amount
+    private val _quickLogGrams = MutableStateFlow(settings.getFloat("quick_track_grams", 0.2f).toDouble())
+    val quickLogGrams: StateFlow<Double> = _quickLogGrams.asStateFlow()
+
+    // Reminder Interval
     private val _reminderInterval = MutableStateFlow(settings.getInt("reminder_interval_hours", 0))
     val reminderInterval: StateFlow<Int> = _reminderInterval.asStateFlow()
 
+    // Streams
     val allSessions: StateFlow<List<SmokeSession>> = repository.allSessions
         .map { list -> list.filter { !it.isDeleted } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -88,6 +98,7 @@ class SmokeViewModel(
         }
     }
 
+    // Stream today's sessions
     val sessionsToday: StateFlow<List<SmokeSession>> = combine(allSessions, dayRhythmHours) { list, rhythm ->
         try {
             val now = Clock.System.now().toEpochMilliseconds()
@@ -140,9 +151,9 @@ class SmokeViewModel(
     }
 
     fun updateSession(session: SmokeSession) = repository.updateSession(session)
-    fun deleteSession(session: SmokeSession) = repository.deleteSession(session.id)
-    fun restoreSession(session: SmokeSession) = repository.restoreSession(session.id)
-    fun permanentlyDeleteSession(session: SmokeSession) = repository.permanentlyDeleteSession(session.id)
+    fun deleteSession(id: Long) = repository.deleteSession(id)
+    fun restoreSession(id: Long) = repository.restoreSession(id)
+    fun permanentlyDeleteSession(id: Long) = repository.permanentlyDeleteSession(id)
     fun emptyAllTrash() = repository.emptyTrash()
     fun clearAll() = repository.clearAll()
 
@@ -174,6 +185,11 @@ class SmokeViewModel(
         _reminderInterval.value = hours
         settings.putInt("reminder_interval_hours", hours)
     }
+    fun setQuickLogGrams(grams: Double) {
+        val rounded = grams.roundToDecimals(1)
+        _quickLogGrams.value = rounded
+        settings.putFloat("quick_track_grams", rounded.toFloat())
+    }
 
     private fun loadSavedTheme() = CannabisTheme.entries.find { it.id == settings.getString("active_theme_id", "") } ?: CannabisTheme.CLASSIC_HERBAL
     private fun loadSavedLanguage() = settings.getString("app_language", "en")
@@ -197,7 +213,8 @@ class SmokeViewModel(
                 "app_language" to _language.value,
                 "day_rhythm_hours" to _dayRhythmHours.value.toString(),
                 "daily_goal_grams" to _dailyGoalGrams.value.toString(),
-                "reminder_interval_hours" to _reminderInterval.value.toString()
+                "reminder_interval_hours" to _reminderInterval.value.toString(),
+                "quick_track_grams" to _quickLogGrams.value.toString()
             )
         )
         return json.encodeToString(data)
@@ -212,6 +229,7 @@ class SmokeViewModel(
             data.settings["day_rhythm_hours"]?.toIntOrNull()?.let { setDayRhythm(it) }
             data.settings["daily_goal_grams"]?.toDoubleOrNull()?.let { setDailyGoal(it) }
             data.settings["reminder_interval_hours"]?.toIntOrNull()?.let { setReminderInterval(it) }
+            data.settings["quick_track_grams"]?.toDoubleOrNull()?.let { setQuickLogGrams(it) }
             true
         } catch (e: Exception) {
             false
@@ -224,7 +242,7 @@ data class DayStat(val dayLabel: String, val sessionsCount: Int, val totalGrams:
 fun Double.roundToDecimals(decimals: Int): Double {
     var multiplier = 1.0
     repeat(decimals) { multiplier *= 10 }
-    return (this * multiplier).toInt() / multiplier
+    return ((this * multiplier).toInt().toDouble() / multiplier)
 }
 
 fun Double.format(decimals: Int): String {
@@ -281,9 +299,9 @@ fun String.translate(lang: String): String {
         "Summary Stats" -> "Statistiken"
         "Total Sessions" -> "Gesamte Sitzungen"
         "Total Grams" -> "Gesamtgramm"
+        "Daily Average" -> "Tagesdurchschnitt"
         "Usage Summary" -> "Nutzungsübersicht"
         "Consumption Analytics" -> "Verbrauchs-Analyse"
-        "Daily Average" -> "Tagesdurchschnitt"
         "Amount (Grams):" -> "Menge (Gramm):"
         "Strain / Variety" -> "Sorte / Varietät"
         "Session Notes" -> "Notizen"
@@ -345,6 +363,36 @@ fun String.translate(lang: String): String {
         "Pride" -> "Pride"
         "Classic Herbal" -> "Classic Herbal"
         "Time to log your session! 🌿" -> "Zeit, deine Sitzung zu protokollieren! 🌿"
+        "Quick Log Amount" -> "Schnell-Log Menge"
+        "App Maintenance" -> "Wartung"
+        "Check for updates or refresh the app cache." -> "Nach Updates suchen oder Cache aktualisieren."
+        "Check for Updates / Refresh" -> "Nach Updates suchen / Aktualisieren"
+        "All Ratings" -> "Alle Bewertungen"
+        "Recommended" -> "Empfohlen"
+        "Neutral" -> "Neutral"
+        "Avoid" -> "Nicht empfohlen"
+        "Good" -> "Gut"
+        "OK" -> "Neutral"
+        "Bad" -> "Schlecht"
+        "Edit Session" -> "Eintrag bearbeiten"
+        "Amount:" -> "Menge:"
+        "Add Strain" -> "Sorte hinzufügen"
+        "Edit Strain" -> "Sorte bearbeiten"
+        "Photo Attached" -> "Foto beigefügt"
+        "Photo" -> "Foto"
+        "Producer" -> "Hersteller"
+        "Name *" -> "Name *"
+        "THC %" -> "THC %"
+        "CBD %" -> "CBD %"
+        "Notes" -> "Notizen"
+        "Delete Session?" -> "Sitzung löschen?"
+        "Move this log to the trash?" -> "Eintrag in den Papierkorb verschieben?"
+        "Permanently Delete?" -> "Endgültig löschen?"
+        "This will be gone forever!" -> "Dies wird für immer gelöscht!"
+        "Delete Forever" -> "Endgültig löschen"
+        "Clear All Data?" -> "Alle Daten löschen?"
+        "This will permanently delete all logs and entries. This action cannot be undone!" -> "Dies wird alle Protokolle und Einträge dauerhaft löschen. Dies kann nicht rückgängig gemacht werden!"
+        "Delete Everything" -> "Alles löschen"
         else -> this
     }
 }

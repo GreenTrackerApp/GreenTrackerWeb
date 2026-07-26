@@ -38,6 +38,7 @@ export async function instantiate(imports={}, runInitializer=true) {
             const str = String.fromCharCode.apply(null, mem16);
             return (prefix == null) ? str : prefix + str;
              },
+        'kotlin.wasm.internal.externrefToInt' : (ref) => Number(ref),
         'kotlin.wasm.internal.getJsEmptyString' : () => '',
         'kotlin.wasm.internal.externrefToString' : (ref) => String(ref),
         'kotlin.wasm.internal.externrefEquals' : (lhs, rhs) => lhs === rhs,
@@ -92,7 +93,6 @@ export async function instantiate(imports={}, runInitializer=true) {
         }
         })(),
         'kotlin.wasm.internal.isNullish' : (ref) => ref == null,
-        'kotlin.wasm.internal.externrefToInt' : (ref) => Number(ref),
         'kotlin.wasm.internal.externrefToBoolean' : (ref) => Boolean(ref),
         'kotlin.wasm.internal.externrefToLong' : (ref) => BigInt(ref),
         'kotlin.wasm.internal.externrefToFloat' : (ref) => Number(ref),
@@ -6091,6 +6091,7 @@ export async function instantiate(imports={}, runInitializer=true) {
                 mem8.set(src);
             }
         ,
+        'com.example.util.decodeBase64ToJsArray' : (base64) => { const binary_string = window.atob(base64); const len = binary_string.length; const bytes = new Uint8Array(len); for (let i = 0; i < len; i++) { bytes[i] = binary_string.charCodeAt(i); } return bytes; },
         'com.example.util.showWebNotification' : (title, body) => { if (typeof Notification !== 'undefined') { new Notification(title, { body: body }); } },
         'com.example.util.getNotificationPermission' : () => { if (typeof Notification !== 'undefined') { return Notification.permission; } return 'denied'; },
         'com.example.util.requestWebNotificationPermission' : () => { if (typeof Notification !== 'undefined') { return Notification.requestPermission(); } return Promise.resolve('denied'); },
