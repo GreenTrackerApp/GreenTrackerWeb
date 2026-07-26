@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,6 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.SmokeSession
 import com.example.data.StrainEntry
 import com.example.ui.theme.CannabisTheme
@@ -96,6 +99,7 @@ fun SmokeTrackerScreen(
     var manualAddInitialGrams by remember { mutableDoubleStateOf(0.2) }
     var showAddStrainDialog by remember { mutableStateOf(false) }
     var editingStrain by remember { mutableStateOf<StrainEntry?>(null) }
+    var zoomedPhoto by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -118,7 +122,7 @@ fun SmokeTrackerScreen(
                                     MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = (-0.5).sp)
                                 }
                             )
-                            Text("Pro Version v5.1", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                            Text("Pro Version v0.8", fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
                     }
                 }
@@ -165,7 +169,7 @@ fun SmokeTrackerScreen(
                 AppTab.HOME -> HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage)
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel)
                 AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, viewModel)
-                AppTab.JOURNAL -> JournalScreen(allStrains, activeLanguage, viewModel, onEdit = { editingStrain = it; showAddStrainDialog = true })
+                AppTab.JOURNAL -> JournalScreen(allStrains, activeLanguage, viewModel, onEdit = { editingStrain = it; showAddStrainDialog = true }, onZoom = { zoomedPhoto = it })
                 AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains)
             }
         }
@@ -184,6 +188,31 @@ fun SmokeTrackerScreen(
             if (editingStrain == null) viewModel.addStrain(n, p, c, thc, cbd, r, nt, photo)
             else viewModel.updateStrain(editingStrain!!.copy(strainName = n, producerCultivar = p, category = c, thcPercentage = thc, cbdPercentage = cbd, rating = r, notes = nt, photoUri = photo))
             showAddStrainDialog = false
+        }
+    }
+
+    if (zoomedPhoto != null) {
+        ZoomedPhotoDialog(zoomedPhoto!!, onDismiss = { zoomedPhoto = null })
+    }
+}
+
+@Composable
+fun ZoomedPhotoDialog(photoUri: String, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.9f)).clickable { onDismiss() }, contentAlignment = Alignment.Center) {
+            val imageBitmap = remember(photoUri) {
+                try {
+                    val base64Data = if (photoUri.contains(",")) photoUri.split(",")[1] else photoUri
+                    val bytes = com.example.util.Base64.decode(base64Data)
+                    SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
+                } catch (e: Exception) { null }
+            }
+            if (imageBitmap != null) {
+                Image(bitmap = imageBitmap, contentDescription = null, modifier = Modifier.fillMaxWidth(0.95f).clip(RoundedCornerShape(12.dp)))
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+                Icon(Icons.Default.Close, null, tint = Color.White)
+            }
         }
     }
 }
@@ -364,7 +393,7 @@ fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.grap
 }
 
 @Composable
-fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeViewModel, onEdit: (StrainEntry) -> Unit) {
+fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeViewModel, onEdit: (StrainEntry) -> Unit, onZoom: (String) -> Unit) {
     var search by remember { mutableStateOf("") }
     var selCat by remember { mutableStateOf("All") }
     var selRat by remember { mutableStateOf("All") }
@@ -416,14 +445,13 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                 Card(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { if (strain.photoUri.isNotEmpty()) onZoom(strain.photoUri) }, contentAlignment = Alignment.Center) {
                                 if (strain.photoUri.isNotEmpty()) {
                                     val imageBitmap = remember(strain.photoUri) {
                                         try {
                                             val base64Data = if (strain.photoUri.contains(",")) strain.photoUri.split(",")[1] else strain.photoUri
                                             val bytes = com.example.util.Base64.decode(base64Data)
-                                            val skiaImg = SkiaImage.makeFromEncoded(bytes)
-                                            skiaImg.toComposeImageBitmap()
+                                            SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
                                         } catch (e: Exception) { null }
                                     }
                                     if (imageBitmap != null) {
@@ -592,7 +620,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                             title = { Text("Permanently Delete?".translate(lang)) },
                             text = { Text("This entry will be removed forever.".translate(lang)) },
                             confirmButton = { Button(onClick = { viewModel.permanentlyDeleteStrain(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
-                            dismissButton = { TextButton(onClick = { showClearAllConfirm = false }) { Text("Cancel".translate(lang)) } }
+                            dismissButton = { TextButton(onClick = { showPermDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -619,6 +647,15 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { expandedSection = if (expandedSection == "danger") null else "danger" }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data") }
         } }
+
+        item {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("GreenTracker Pro", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    Text("Version 0.8", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                }
+            }
+        }
     }
 }
 
@@ -696,7 +733,7 @@ fun EditSessionDialog(session: SmokeSession, lang: String, maxDosage: Double, on
     var timestamp by remember { mutableStateOf(session.timestamp) }
 
     AlertDialog(
-        onDismissRequest = { /* Lock */ },
+        onDismissRequest = { /* Prevent closing on outside click */ },
         title = { Text("Edit Session".translate(lang), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -740,7 +777,7 @@ fun AddManualSessionDialog(initialGrams: Double, lang: String, maxDosage: Double
     var notes by remember { mutableStateOf("") }
     var timestamp by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
     AlertDialog(
-        onDismissRequest = { /* Lock */ },
+        onDismissRequest = { /* Prevent closing on outside click */ },
         title = { Text("Log Session", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -789,7 +826,7 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, onDismiss: () -> Un
     var cbdText by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toString() else "") }
     var nts by remember { mutableStateOf(initial?.notes ?: "") }
     AlertDialog(
-        onDismissRequest = { /* Lock */ },
+        onDismissRequest = { /* Prevent closing on outside click */ },
         title = { Text(if (initial == null) "Add Strain" else "Edit Strain", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
