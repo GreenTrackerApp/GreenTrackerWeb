@@ -165,7 +165,7 @@ class SmokeViewModel(
     }
     fun updateStrain(entry: StrainEntry) = repository.updateStrain(entry)
     fun deleteStrain(id: Long) = repository.deleteStrain(id)
-    fun restoreStrain(entry: StrainEntry) = repository.restoreStrain(entry.id)
+    fun restoreStrain(id: Long) = repository.restoreStrain(id)
     fun permanentlyDeleteStrain(id: Long) = repository.permanentlyDeleteStrain(id)
 
     fun setTheme(theme: CannabisTheme) {
