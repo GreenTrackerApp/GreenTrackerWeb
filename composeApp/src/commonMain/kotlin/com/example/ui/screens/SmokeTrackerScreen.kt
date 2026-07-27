@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.compose.resources.ExperimentalResourceApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.ui.screens
 
 import androidx.compose.animation.*
@@ -19,7 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -50,6 +52,8 @@ import org.w3c.files.FileReader
 import org.w3c.files.get
 import kotlin.js.*
 
+import org.jetbrains.compose.resources.decodeToImageBitmap
+
 enum class AppTab {
     HOME, HISTORY, STATS, JOURNAL, SETTINGS
 }
@@ -75,7 +79,6 @@ enum class HistoryFilter {
 }""")
 external fun forceAppUpdate(): Unit
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmokeTrackerScreen(
     viewModel: SmokeViewModel,
@@ -94,7 +97,7 @@ fun SmokeTrackerScreen(
 
     var currentTab by remember { mutableStateOf(AppTab.HOME) }
     var showAddManualDialog by remember { mutableStateOf(false) }
-    var manualAddInitialGrams by remember { mutableDoubleStateOf(0.2) }
+    var manualAddInitialGrams by remember { mutableDoubleStateOf(0.0) }
     var showAddStrainDialog by remember { mutableStateOf(false) }
     var editingStrain by remember { mutableStateOf<StrainEntry?>(null) }
     var zoomedPhoto by remember { mutableStateOf<String?>(null) }
@@ -144,7 +147,7 @@ fun SmokeTrackerScreen(
             if (currentTab == AppTab.HISTORY || currentTab == AppTab.JOURNAL) {
                 FloatingActionButton(
                     onClick = {
-                        if (currentTab == AppTab.HISTORY) { manualAddInitialGrams = 0.2; showAddManualDialog = true }
+                        if (currentTab == AppTab.HISTORY) { manualAddInitialGrams = 0.0; showAddManualDialog = true }
                         else { editingStrain = null; showAddStrainDialog = true }
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -199,7 +202,7 @@ fun ZoomedPhotoDialog(photoUri: String, onDismiss: () -> Unit) {
                 try {
                     val base64Data = if (photoUri.contains(",")) photoUri.split(",")[1] else photoUri
                     val bytes = com.example.util.Base64.decode(base64Data)
-                    org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
+                    bytes.decodeToImageBitmap()
                 } catch (e: Exception) { null }
             }
             if (imageBitmap != null) {
@@ -475,10 +478,10 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("All", "THUMBS_UP", "NEUTRAL", "THUMBS_DOWN").forEach { rate ->
                 val (label, icon) = when(rate) {
-                    "THUMBS_UP" -> "Recommended".translate(lang) to Icons.Default.ThumbUp
-                    "NEUTRAL" -> "Neutral".translate(lang) to Icons.Default.SentimentNeutral
-                    "THUMBS_DOWN" -> "Avoid".translate(lang) to Icons.Default.ThumbDown
-                    else -> "All Ratings".translate(lang) to Icons.Default.Star
+                    "THUMBS_UP" -> "Recommended" to Icons.Default.ThumbUp
+                    "NEUTRAL" -> "Neutral" to Icons.Default.SentimentNeutral
+                    "THUMBS_DOWN" -> "Avoid" to Icons.Default.ThumbDown
+                    else -> "All Ratings" to Icons.Default.Star
                 }
                 FilterChip(
                     selected = selectedRating == rate,
@@ -487,7 +490,7 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(icon, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(label)
+                            Text(label.translate(lang))
                         }
                     }
                 )
@@ -518,7 +521,7 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                                         try {
                                             val base64Data = if (strain.photoUri.contains(",")) strain.photoUri.split(",")[1] else strain.photoUri
                                             val bytes = com.example.util.Base64.decode(base64Data)
-                                            org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
+                                            bytes.decodeToImageBitmap()
                                         } catch (e: Exception) { null }
                                     }
                                     if (imageBitmap != null) {
@@ -751,7 +754,7 @@ fun CollapsibleSubSection(title: String, isExpanded: Boolean, badgeCount: Int = 
                     }
                 }
             }
-            Icon(if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(20.dp))
+            Icon(if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, modifier = Modifier.size(20.dp))
         }
         if (isExpanded) Column(modifier = Modifier.padding(start = 8.dp)) { content() }
     }
@@ -909,8 +912,8 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, onDismiss: () -> Un
     var cat by remember { mutableStateOf(initial?.category ?: "Hybrid") }
     var photo by remember { mutableStateOf(initial?.photoUri ?: "") }
     var rat by remember { mutableStateOf(initial?.rating ?: "THUMBS_UP") }
-    var thcText by remember { mutableStateOf(if (initial != null && initial.thcPercentage > 0) initial.thcPercentage.toString() else "") }
-    var cbdText by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toString() else "") }
+    var thcText by remember { mutableStateOf(if (initial != null && initial.thcPercentage > 0) initial.thcPercentage.toInt().toString() else "") }
+    var cbdText by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toInt().toString() else "") }
     var nts by remember { mutableStateOf(initial?.notes ?: "") }
     AlertDialog(
         onDismissRequest = { /* Lock */ },
@@ -923,8 +926,7 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, onDismiss: () -> Un
                             try {
                                 val base64Data = if (photo.contains(",")) photo.split(",")[1] else photo
                                 val bytes = com.example.util.Base64.decode(base64Data)
-                                val skImg = org.jetbrains.skia.Image.makeFromEncoded(bytes)
-                                skImg.toComposeImageBitmap()
+                                bytes.decodeToImageBitmap()
                             } catch (e: Exception) { null }
                         }
                         if (imageBitmap != null) {

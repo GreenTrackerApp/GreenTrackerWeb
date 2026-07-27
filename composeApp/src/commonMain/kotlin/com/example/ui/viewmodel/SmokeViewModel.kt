@@ -139,7 +139,7 @@ class SmokeViewModel(
                 val dayStart = mondayStart + i * 24 * 60 * 60 * 1000L
                 val dayEnd = dayStart + 24 * 60 * 60 * 1000L - 1L
                 val daySessions = list.filter { it.timestamp in dayStart..dayEnd }
-                stats.add(DayStat(labels[i], daySessions.size, daySessions.sumOf { it.grams }.roundToDecimals(2), dayStart))
+                stats.add(DayStat(labels[i], daySessions.size, daySessions.sumOf { it.grams }.roundToDecimals(0), dayStart))
             }
         } catch (e: Exception) {
             val fallbackLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -182,11 +182,12 @@ class SmokeViewModel(
         settings.putInt("day_rhythm_hours", hours)
     }
     fun setDailyGoal(grams: Double) {
-        _dailyGoalGrams.value = grams
-        settings.putFloat("daily_goal_grams", grams.toFloat())
+        val rounded = kotlin.math.round(grams)
+        _dailyGoalGrams.value = rounded
+        settings.putFloat("daily_goal_grams", rounded.toFloat())
     }
     fun setWidgetMaxDosage(grams: Double) {
-        val rounded = grams.roundToDecimals(1)
+        val rounded = kotlin.math.round(grams)
         _widgetMaxDosage.value = rounded
         settings.putFloat("widget_max_dosage", rounded.toFloat())
     }
@@ -195,7 +196,7 @@ class SmokeViewModel(
         settings.putInt("reminder_interval_hours", hours)
     }
     fun setQuickLogGrams(grams: Double) {
-        val rounded = grams.roundToDecimals(1)
+        val rounded = kotlin.math.round(grams)
         _quickLogGrams.value = rounded
         settings.putFloat("quick_track_grams", rounded.toFloat())
     }
@@ -257,7 +258,9 @@ fun Double.roundToDecimals(decimals: Int): Double {
 }
 
 fun Double.format(decimals: Int): String {
-    val rounded = this.roundToDecimals(decimals).toString()
+    val roundedVal = this.roundToDecimals(decimals)
+    if (decimals == 0) return roundedVal.toInt().toString()
+    val rounded = roundedVal.toString()
     return if (rounded.contains(".")) {
         val parts = rounded.split(".")
         if (parts[1].length < decimals) {
