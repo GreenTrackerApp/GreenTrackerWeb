@@ -149,8 +149,9 @@ class SmokeViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun logSession(grams: Double, strain: String, notes: String, timestamp: Long = Clock.System.now().toEpochMilliseconds()) {
-        repository.insertSession(SmokeSession(timestamp = timestamp, grams = grams, strain = strain, notes = notes))
-        NotificationHelper.notify("GreenTracker", "Smoke logged ;) +${grams}g")
+        val roundedGrams = kotlin.math.round(grams)
+        repository.insertSession(SmokeSession(timestamp = timestamp, grams = roundedGrams, strain = strain, notes = notes))
+        NotificationHelper.notify("GreenTracker", "Smoke logged ;) +${roundedGrams.toInt()}g")
     }
 
     fun updateSession(session: SmokeSession) = repository.updateSession(session)
@@ -221,6 +222,7 @@ class SmokeViewModel(
                 "app_language" to _language.value,
                 "day_rhythm_hours" to _dayRhythmHours.value.toString(),
                 "daily_goal_grams" to _dailyGoalGrams.value.toString(),
+                "widget_max_dosage" to _widgetMaxDosage.value.toString(),
                 "reminder_interval_hours" to _reminderInterval.value.toString(),
                 "quick_track_grams" to _quickLogGrams.value.toString()
             )
@@ -236,6 +238,7 @@ class SmokeViewModel(
             data.settings["app_language"]?.let { setLanguage(it) }
             data.settings["day_rhythm_hours"]?.toIntOrNull()?.let { setDayRhythm(it) }
             data.settings["daily_goal_grams"]?.toDoubleOrNull()?.let { setDailyGoal(it) }
+            data.settings["widget_max_dosage"]?.toDoubleOrNull()?.let { setWidgetMaxDosage(it) }
             data.settings["reminder_interval_hours"]?.toIntOrNull()?.let { setReminderInterval(it) }
             data.settings["quick_track_grams"]?.toDoubleOrNull()?.let { setQuickLogGrams(it) }
             true
@@ -324,6 +327,8 @@ fun String.translate(lang: String): String {
         "Deleted Journal Entries" -> "Gelöschte Journal-Einträge"
         "Deleted items are automatically removed after 7 days." -> "Gelöschte Elemente werden nach 7 Tagen automatisch entfernt."
         "Empty Trash" -> "Papierkorb leeren"
+        "Are you sure?" -> "Bist du sicher?"
+        "Confirm Delete" -> "Löschen bestätigen"
         "Empty All Trash" -> "Gesamten Papierkorb leeren"
         "Restore" -> "Wiederherstellen"
         "Delete Permanently" -> "Endgültig löschen"
@@ -334,10 +339,11 @@ fun String.translate(lang: String): String {
         "Language Settings" -> "Spracheinstellungen"
         "Theme Settings" -> "Theme-Einstellungen"
         "App Icon" -> "App-Icon"
-        "Daily Dosage Limit" -> "Tageslimit"
+        "Daily Dosage Limit" -> "Heutiges Limit"
         "Day Rhythm" -> "Tagesrhythmus"
         "Start of Day" -> "Tagesbeginn"
         "Configure when your logging day starts (e.g. 4:00 AM)." -> "Konfigurieren Sie, wann Ihr Protokolltag beginnt (z. B. 04:00 Uhr)."
+        "Slider Max Range" -> "Slider-Maximum"
         "Widget Dosage Range Setup" -> "Widget Dosierungs-Setup"
         "Widget Max Dosage" -> "Widget Max. Dosis"
         "Widget Dosage Step" -> "Widget Dosis-Schritt"
@@ -401,6 +407,9 @@ fun String.translate(lang: String): String {
         "Clear All Data?" -> "Alle Daten löschen?"
         "This will permanently delete all logs and entries. This action cannot be undone!" -> "Dies wird alle Protokolle und Einträge dauerhaft löschen. Dies kann nicht rückgängig gemacht werden!"
         "Delete Everything" -> "Alles löschen"
+        "Excess" -> "Überschreitung"
+        "Logged" -> "Protokolliert"
+        "Days" -> "Tage"
         else -> this
     }
 }
