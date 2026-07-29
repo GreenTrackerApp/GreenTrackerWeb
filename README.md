@@ -10,7 +10,7 @@ kam diese App raus.
 Ja ich musste viele Stunden eine KI anbrüllen 
 und paar Dinge mal auch per Hand biegen.
 ganze Projekt Endstand auf kostenloser Basis von Google 
-
+Kann unter iPhone mit Safari als „App“ installiert werden 
 Die webapp soll jedem Patienten da draußen und alles anderen 
 420 Leuten, ihren Verbrauch zu kontrollieren und protokollieren.
 
