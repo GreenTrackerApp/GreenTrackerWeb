@@ -1,7 +1,12 @@
-- [ ] Update `SmokeViewModel.kt` (Precision & Translations)
-- [ ] Update `SmokeTrackerScreen.kt`: Home Screen parity
-- [ ] Update `SmokeTrackerScreen.kt`: History Headers & Grouping
-- [ ] Update `SmokeTrackerScreen.kt`: Journal Auto-Scroll
-- [ ] Update `SmokeTrackerScreen.kt`: Settings & Interactive Changelog
-- [ ] Update `SmokeTrackerScreen.kt`: Trash 2-Factor Deletion
-- [ ] Final Verification of Web App parity
+- [x] Update `SmokeViewModel.kt` (Precision & Translations)
+- [x] Update `SmokeTrackerScreen.kt`: Home Screen parity (Triple-Tap)
+- [x] Update `SmokeTrackerScreen.kt`: History Headers & Grouping (Heute/Gestern)
+- [x] Update `SmokeTrackerScreen.kt`: Journal Auto-Scroll
+- [x] Update `SmokeTrackerScreen.kt`: Settings & Interactive Changelog (v1.2.2)
+- [x] Update `SmokeTrackerScreen.kt`: Trash 2-Factor Deletion & Number Formatting
+- [x] Add "Max.:" Daily Goal indicator to web HomeScreen
+- [x] Implement Custom Time Period for web History
+    - [x] Update `HistoryFilter` and add `triggerWebDatePicker`
+    - [x] Update `HistoryScreen` logic and UI
+    - [x] Add translations to `SmokeViewModel.kt`
+- [x] Final Verification of Web App parity

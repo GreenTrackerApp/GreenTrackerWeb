@@ -1,45 +1,37 @@
-# Implementation Plan - Web App Parity with Android v1.2.2
+# Implementation Plan - Web App: Custom History Time Period
 
-Bring the GreenTracker Web App to full feature parity with the Android app (v1.2.2), including localization, precision tracking, UI refinements, and functional bug fixes.
+Implement the "Custom Range" filter in the History screen for the web app, allowing users to filter their smoke logs by a specific start and end date using the browser's native date picker.
 
 ## User Review Required
 
-> [!IMPORTANT]
-> This update will synchronize the Web App with the Android version. Key changes include restoring 0.1g precision, standardising "Usage / Verbrauch" terminology, and adding the "Sicher?" (Rly?) confirmation for permanent deletion in the Trash.
+> [!NOTE]
+> I will add a "Custom Range" option to the History filters. When selected, you'll be able to click on "From" and "To" buttons to open your browser's date picker and select a specific timeframe.
 
 ## Proposed Changes
+
+### [UI Enhancements]
+
+#### [MODIFY] [SmokeTrackerScreen.kt](file:///home/marcel/Schreibtisch/GreenTrackerWeb/composeApp/src/commonMain/kotlin/com/example/ui/screens/SmokeTrackerScreen.kt)
+- **`HistoryFilter` Enum**: Add `CUSTOM` to the enum.
+- **Web Date Picker Helper**: Add an `@JsFun` external function `triggerWebDatePicker` to invoke the browser's `<input type="date">`.
+- **`HistoryScreen` Update**:
+    - Add states for `customStartDate` and `customEndDate`.
+    - Implement the logic to filter sessions between these two timestamps.
+    - Add a UI row (only visible when `CUSTOM` is selected) with buttons to set the dates.
+- **`translate` Updates**: Ensure "Custom Range", "From:", "To:", "Select Start Date", and "Select End Date" are translated.
 
 ### [Core Logic & Data]
 
 #### [MODIFY] [SmokeViewModel.kt](file:///home/marcel/Schreibtisch/GreenTrackerWeb/composeApp/src/commonMain/kotlin/com/example/ui/viewmodel/SmokeViewModel.kt)
-- **Precision**: Remove `kotlin.math.round` from `logSession` to allow decimal tracking.
-- **Localization**: Update the `translate` function with all missing strings (Usage, Widget terminology, Changelog entries, etc.).
-
-### [User Interface]
-
-#### [MODIFY] [SmokeTrackerScreen.kt](file:///home/marcel/Schreibtisch/GreenTrackerWeb/composeApp/src/commonMain/kotlin/com/example/ui/screens/SmokeTrackerScreen.kt)
-- **HomeScreen**:
-    - Update "Consumption" -> "Usage".
-    - Show 0.1g precision in the main counter.
-    - Standardise "app dashboard" -> "Widget" in quick log notes.
-- **HistoryScreen**:
-    - Implement "Heute" / "Gestern" headers.
-    - Ensure logical day grouping (04:00 - 04:00).
-- **JournalScreen**:
-    - Add `rememberLazyListState` and auto-scroll to top when adding a new entry.
-- **SettingsScreen**:
-    - Implement the interactive **Versionsverlauf** (Changelog) for v1.2.2.
-    - Fix missing German translation for "Set your preferred language".
-    - Update Trash section labels.
-- **Trash Refinement**:
-    - **TrashedSessionRow** & **TrashedStrainRow**: Add the "Sicher?" (Rly?) confirmation step for permanent deletion.
-    - **Number Bug**: Use `.format(1)` for session grams in the trash to prevent long floating-point strings.
+- **Localization**: Add translations for the new date-related strings.
 
 ## Verification Plan
 
 ### Manual Verification
-1.  **Precision**: Log 0.2g. Verify the Home screen and History show 0.2g, not 0g or 1g.
-2.  **Localization**: Switch to German. Verify "Verbrauch", "Heute", "Löschen", and "Abbrechen" are all correct.
-3.  **Trash**: Delete an item. Go to Trash. Tap the delete icon. Verify "Sicher?" appears and auto-resets after 3 seconds.
-4.  **Journal**: Add a new strain. Verify the list scrolls to the top automatically.
-5.  **Changelog**: Verify "Versionsverlauf" lists v1.2.2 at the top.
+1.  **History Screen**: Open the web app and go to the History tab.
+2.  **Filter Selection**: Tap on "Custom Range" (Zeitraum wählen).
+3.  **Date Selection**:
+    - Tap "Select Start Date". Verify the browser's date picker opens. Select a date.
+    - Tap "Select End Date". Select a later date.
+4.  **Filtering**: Verify that only logs within that specific timeframe are shown in the list.
+5.  **Language Test**: Verify all labels are correctly translated in German.

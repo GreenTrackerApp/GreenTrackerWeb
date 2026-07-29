@@ -139,7 +139,7 @@ class SmokeViewModel(
                 val dayStart = mondayStart + i * 24 * 60 * 60 * 1000L
                 val dayEnd = dayStart + 24 * 60 * 60 * 1000L - 1L
                 val daySessions = list.filter { it.timestamp in dayStart..dayEnd }
-                stats.add(DayStat(labels[i], daySessions.size, daySessions.sumOf { it.grams }.roundToDecimals(0), dayStart))
+                stats.add(DayStat(labels[i], daySessions.size, daySessions.sumOf { it.grams }.roundToDecimals(1), dayStart))
             }
         } catch (e: Exception) {
             val fallbackLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -153,7 +153,10 @@ class SmokeViewModel(
         NotificationHelper.notify("GreenTracker", "Smoke logged ;) +${grams.format(1)}g")
     }
 
-    fun updateSession(session: SmokeSession) = repository.updateSession(session)
+    fun updateSession(session: SmokeSession) {
+        repository.updateSession(session)
+        NotificationHelper.notify("GreenTracker", "Eintrag aktualisiert".translate(_language.value))
+    }
     fun deleteSession(id: Long) = repository.deleteSession(id)
     fun restoreSession(id: Long) = repository.restoreSession(id)
     fun permanentlyDeleteSession(id: Long) = repository.permanentlyDeleteSession(id)
@@ -162,6 +165,7 @@ class SmokeViewModel(
 
     fun addStrain(name: String, producer: String, cat: String, thc: Double, cbd: Double, rat: String, notes: String, photo: String) {
         repository.insertStrain(StrainEntry(strainName = name, producerCultivar = producer, category = cat, thcPercentage = thc, cbdPercentage = cbd, rating = rat, notes = notes, photoUri = photo, createdAt = Clock.System.now().toEpochMilliseconds()))
+        NotificationHelper.notify("GreenTracker", "Sorte hinzugefügt".translate(_language.value))
     }
     fun updateStrain(entry: StrainEntry) = repository.updateStrain(entry)
     fun deleteStrain(id: Long) = repository.deleteStrain(id)
@@ -181,23 +185,20 @@ class SmokeViewModel(
         settings.putInt("day_rhythm_hours", hours)
     }
     fun setDailyGoal(grams: Double) {
-        val rounded = kotlin.math.round(grams)
-        _dailyGoalGrams.value = rounded
-        settings.putFloat("daily_goal_grams", rounded.toFloat())
+        _dailyGoalGrams.value = grams
+        settings.putFloat("daily_goal_grams", grams.toFloat())
     }
     fun setWidgetMaxDosage(grams: Double) {
-        val rounded = kotlin.math.round(grams)
-        _widgetMaxDosage.value = rounded
-        settings.putFloat("widget_max_dosage", rounded.toFloat())
+        _widgetMaxDosage.value = grams
+        settings.putFloat("widget_max_dosage", grams.toFloat())
     }
     fun setReminderInterval(hours: Int) {
         _reminderInterval.value = hours
         settings.putInt("reminder_interval_hours", hours)
     }
     fun setQuickLogGrams(grams: Double) {
-        val rounded = kotlin.math.round(grams)
-        _quickLogGrams.value = rounded
-        settings.putFloat("quick_track_grams", rounded.toFloat())
+        _quickLogGrams.value = grams
+        settings.putFloat("quick_track_grams", grams.toFloat())
     }
 
     private fun loadSavedTheme() = CannabisTheme.entries.find { it.id == settings.getString("active_theme_id", "") } ?: CannabisTheme.CLASSIC_HERBAL
@@ -306,6 +307,11 @@ fun String.translate(lang: String): String {
         "Today's Logs Preview" -> "Vorschau"
         "Today" -> "Heute"
         "Yesterday" -> "Gestern"
+        "Custom Range" -> "Zeitraum wählen"
+        "From: " -> "Von: "
+        "To: " -> "Bis: "
+        "Select Start Date" -> "Beginn wählen"
+        "Select End Date" -> "Ende wählen"
         "Earlier Logs" -> "Frühere Logs"
         "Overall Consumption" -> "Gesamtverbrauch"
         "Weekly Trends (Last 7 Days)" -> "Wöchentliche Trends"
@@ -350,7 +356,6 @@ fun String.translate(lang: String): String {
         "Widget Max Dosage" -> "Widget Max. Dosis"
         "Widget Dosage Step" -> "Widget Dosis-Schritt"
         "Push Notification Reminders" -> "Push-Benachrichtigungen"
-        "Save" -> "Speichern"
         "Timestamp" -> "Zeitpunkt"
         "Sun" -> "So"
         "Mon" -> "Mo"
@@ -384,14 +389,10 @@ fun String.translate(lang: String): String {
         "Check for updates or refresh the app cache." -> "Nach Updates suchen oder Cache aktualisieren."
         "Check for Updates / Refresh" -> "Nach Updates suchen / Aktualisieren"
         "All Ratings" -> "Alle Bewertungen"
-        "Recommended" -> "Empfohlen"
-        "Neutral" -> "Neutral"
         "Avoid" -> "Nicht empfohlen"
-        "Good" -> "Gut"
-        "OK" -> "Neutral"
-        "Bad" -> "Schlecht"
         "Edit Session" -> "Eintrag bearbeiten"
         "Amount:" -> "Menge:"
+        "Strain" -> "Sorte"
         "Add Strain" -> "Sorte hinzufügen"
         "Edit Strain" -> "Sorte bearbeiten"
         "Photo Attached" -> "Foto beigefügt"
@@ -400,7 +401,6 @@ fun String.translate(lang: String): String {
         "Name *" -> "Name *"
         "THC %" -> "THC %"
         "CBD %" -> "CBD %"
-        "Notes" -> "Notizen"
         "Delete Session?" -> "Sitzung löschen?"
         "Move this log to the trash?" -> "Eintrag in den Papierkorb verschieben?"
         "Permanently Delete?" -> "Endgültig löschen?"
@@ -442,6 +442,9 @@ fun String.translate(lang: String): String {
         "Fixed German 'Heute/Gestern' headers" -> "Heute/Gestern Header in der Historie korrigiert"
         "Auto-scroll to top in Journal" -> "Automatisches Scrollen nach oben im Tagebuch"
         "Fixed deletion state bug in lists" -> "Fehler beim Lösch-Status in Listen behoben"
+        "Max.:" -> "Max.:"
+        "Eintrag aktualisiert" -> "Eintrag aktualisiert"
+        "Sorte hinzugefügt" -> "Sorte hinzugefügt"
         else -> this
     }
 }

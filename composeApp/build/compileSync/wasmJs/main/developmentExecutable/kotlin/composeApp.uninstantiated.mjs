@@ -6091,6 +6091,17 @@ export async function instantiate(imports={}, runInitializer=true) {
                 mem8.set(src);
             }
         ,
+        'com.example.ui.screens.triggerWebDatePicker' : (onDate) => {
+            const input = document.createElement('input');
+            input.type = 'date';
+            input.onchange = (e) => {
+                const date = e.target.value; // yyyy-mm-dd
+                if (date) {
+                    onDate(date);
+                }
+            };
+            input.click();
+        },
         'com.example.ui.screens.forceAppUpdate' : () => { 
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(function(registrations) {
