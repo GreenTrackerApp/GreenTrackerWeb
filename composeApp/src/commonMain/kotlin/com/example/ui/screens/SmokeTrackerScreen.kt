@@ -8,6 +8,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -164,7 +165,10 @@ fun SmokeTrackerScreen(
                 .padding(paddingValues)
         ) {
             when (currentTab) {
-                AppTab.HOME -> HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage)
+                AppTab.HOME -> {
+                    val reminderInterval by viewModel.reminderInterval.collectAsState()
+                    HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage, reminderInterval, onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it })
+                }
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel)
                 AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, viewModel)
                 AppTab.JOURNAL -> JournalScreen(allStrains, activeLanguage, viewModel, onEdit = { editingStrain = it; showAddStrainDialog = true }, onZoom = { zoomedPhoto = it })
@@ -234,29 +238,78 @@ fun BottomNavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: 
 }
 
 @Composable
-fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsToday: List<SmokeSession>, dailyGoalGrams: Double, lang: String) {
+fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsToday: List<SmokeSession>, dailyGoalGrams: Double, lang: String, reminderInterval: Int, onNavigateToSettings: (String) -> Unit) {
     val totalTodayGrams = sessionsToday.sumOf { it.grams }
     val progress = if (dailyGoalGrams > 0.0) (totalTodayGrams / dailyGoalGrams).toFloat().coerceIn(0f, 1f) else 0f
     val quickLogGrams by viewModel.quickLogGrams.collectAsState()
     val maxDosage by viewModel.widgetMaxDosage.collectAsState()
 
+    var reminderTapCount by remember { mutableStateOf(0) }
+    var lastReminderTapTime by remember { mutableLongStateOf(0L) }
+
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+        // Reminder Status Bar
+        item {
+            Surface(
+                onClick = {
+                    val now = Clock.System.now().toEpochMilliseconds()
+                    if (now - lastReminderTapTime < 800) {
+                        reminderTapCount++
+                    } else {
+                        reminderTapCount = 1
+                    }
+                    lastReminderTapTime = now
+
+                    if (reminderTapCount >= 3) {
+                        onNavigateToSettings("notif")
+                        reminderTapCount = 0
+                    }
+                },
+                color = Color.Transparent,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (reminderInterval > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    )
+                    val locale = if (lang == "de") "de" else "en" // Web doesn't use Locale.GERMANY same way
+                    Text(
+                        text = if (reminderInterval > 0) {
+                            "Reminder active: Log sessions every %dh for accurate statistics!".translate(lang).replace("%d", reminderInterval.toString())
+                        } else {
+                            "Reminders are currently off. Tap Settings to enable push notifications.".translate(lang)
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+            }
+        }
+
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text(text = "Today's Consumption".translate(lang), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium))
+                    Text(text = "Usage".translate(lang), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium))
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         Column {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 val bigGramColor = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else Color(0xFF2E7D32)
-                                Text(text = totalTodayGrams.format(0), style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold, fontSize = 54.sp, color = bigGramColor))
+                                Text(text = totalTodayGrams.format(1), style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold, fontSize = 54.sp, color = bigGramColor))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(text = "g", style = MaterialTheme.typography.titleLarge.copy(color = bigGramColor, fontWeight = FontWeight.SemiBold))
                             }
                             val excess = totalTodayGrams - dailyGoalGrams
                             if (excess > 0.0) {
                                 Text(
-                                    text = "(${"Excess".translate(lang)}: +${excess.format(0)}g)",
+                                    text = "(${"Excess".translate(lang)}: +${excess.format(1)}g)",
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold
@@ -281,16 +334,16 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
                             Text(text = "Logging".translate(lang), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
                             Text(text = "Slide to set log amount".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)))
                         }
-                        Button(onClick = { viewModel.logSession(quickLogGrams, "", "Quick log") }, shape = RoundedCornerShape(16.dp)) {
+                        Button(onClick = { viewModel.logSession(quickLogGrams, "", "Quick logged from Widget".translate(lang)) }, shape = RoundedCornerShape(16.dp)) {
                             Icon(imageVector = Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-                            Text(text = "Log ${quickLogGrams.format(0)}g", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(text = "Log ${quickLogGrams.format(1)}g", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                          Text(text = "Session Dosage:".translate(lang), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
-                         Text(text = "${quickLogGrams.format(0)} g", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer))
+                         Text(text = "${quickLogGrams.format(1)} g", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer))
                     }
                     Slider(
                         value = quickLogGrams.toFloat(), 
@@ -304,7 +357,7 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
         }
 
         item { Text("Today's Logs Preview".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) }
-        items(sessionsToday.take(5)) { sItem ->
+        items(sessionsToday.take(5), key = { it.id }) { sItem ->
             SessionItemRow(sItem, lang, viewModel, onDelete = { viewModel.deleteSession(sItem.id) }, onEdit = { viewModel.updateSession(it) })
         }
     }
@@ -349,6 +402,11 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
         LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             grouped.forEach { (date, sessions) ->
                 val isExpanded = expandedDates.contains(date)
+                val dayTitle = when (date) {
+                    todayDate -> "Today".translate(lang)
+                    // Simple yesterday check (date is string format yyyy-MM-dd)
+                    else -> date
+                }
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth()
@@ -357,7 +415,7 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(date, fontWeight = FontWeight.Bold, color = if (date == todayDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Text(dayTitle, fontWeight = FontWeight.Bold, color = if (date == todayDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         Icon(if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -404,13 +462,13 @@ fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lan
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 StatInsightCard("Total Sessions".translate(lang), "${allSessions.size}", Icons.Default.Assessment, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-                StatInsightCard("Total Grams".translate(lang), "${totalGrams.format(0)}g", Icons.Default.Spa, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
+                StatInsightCard("Total Grams".translate(lang), "${totalGrams.format(1)}g", Icons.Default.Spa, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
             }
         }
         item { 
             StatInsightCard(
                 title = "Daily Average".translate(lang) + " (${"Logged".translate(lang)}: $daysCount ${"Days".translate(lang)})", 
-                value = "${(totalGrams / daysCount.coerceAtLeast(1)).format(0)}g", 
+                value = "${(totalGrams / daysCount.coerceAtLeast(1)).format(1)}g", 
                 icon = Icons.Default.FilterVintage, 
                 color = MaterialTheme.colorScheme.tertiary, 
                 modifier = Modifier.fillMaxWidth()
@@ -434,9 +492,17 @@ fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.grap
 
 @Composable
 fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeViewModel, onEdit: (StrainEntry) -> Unit, onZoom: (String) -> Unit) {
+    val listState = rememberLazyListState()
     var search by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     var selectedRating by remember { mutableStateOf("All") }
+
+    // Auto-scroll to top when a new strain is added (strains size increases)
+    LaunchedEffect(strains.size) {
+        if (strains.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     val filtered = strains.filter { strain ->
         val matchesSearch = strain.strainName.contains(search, ignoreCase = true) || strain.producerCultivar.contains(search, ignoreCase = true) || strain.category.contains(search, ignoreCase = true)
@@ -499,7 +565,7 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
             items(filtered) { strain ->
                 var showDeleteConfirm by remember { mutableStateOf(false) }
                 if (showDeleteConfirm) {
@@ -594,9 +660,16 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp)) {
         item { Text("Application Settings".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         item { CollapsibleSettingsCard("Language Settings".translate(lang), expandedSection == "lang", onToggle = { expandedSection = if (expandedSection == "lang") null else "lang" }) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = lang == "en", onClick = { viewModel.setLanguage("en") }, label = { Text("English") })
-                FilterChip(selected = lang == "de", onClick = { viewModel.setLanguage("de") }, label = { Text("Deutsch") })
+            Column {
+                Text(
+                    text = "Set your preferred application language: English or German.".translate(lang),
+                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = lang == "en", onClick = { viewModel.setLanguage("en") }, label = { Text("English") })
+                    FilterChip(selected = lang == "de", onClick = { viewModel.setLanguage("de") }, label = { Text("Deutsch") })
+                }
             }
         } }
         item { CollapsibleSettingsCard("Theme Settings".translate(lang), expandedSection == "theme", onToggle = { expandedSection = if (expandedSection == "theme") null else "theme" }) {
@@ -664,40 +737,12 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             
             CollapsibleSubSection("Sessions".translate(lang), isSessionsTrashExpanded, badgeCount = trashedSessions.size, onToggle = { isSessionsTrashExpanded = !isSessionsTrashExpanded }) {
                 trashedSessions.forEach { s ->
-                    var showPermDeleteConfirm by remember { mutableStateOf(false) }
-                    if (showPermDeleteConfirm) {
-                        AlertDialog(
-                            onDismissRequest = { /* Lock */ },
-                            title = { Text("Permanently Delete?".translate(lang)) },
-                            text = { Text("This will be gone forever!".translate(lang)) },
-                            confirmButton = { Button(onClick = { viewModel.permanentlyDeleteSession(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
-                            dismissButton = { TextButton(onClick = { showPermDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${s.grams.format(0)}g - ${s.strain}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        IconButton(onClick = { viewModel.restoreSession(s.id) }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) }
-                        IconButton(onClick = { showPermDeleteConfirm = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) }
-                    }
+                    TrashedSessionRow(s, viewModel, lang)
                 }
             }
             CollapsibleSubSection("Journal".translate(lang), isStrainsTrashExpanded, badgeCount = trashedStrains.size, onToggle = { isStrainsTrashExpanded = !isStrainsTrashExpanded }) {
                 trashedStrains.forEach { s ->
-                    var showPermDeleteConfirm by remember { mutableStateOf(false) }
-                    if (showPermDeleteConfirm) {
-                        AlertDialog(
-                            onDismissRequest = { /* Lock */ },
-                            title = { Text("Permanently Delete?".translate(lang)) },
-                            text = { Text("This entry will be removed forever.".translate(lang)) },
-                            confirmButton = { Button(onClick = { viewModel.permanentlyDeleteStrain(s.id); showPermDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Forever".translate(lang)) } },
-                            dismissButton = { TextButton(onClick = { showPermDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(s.strainName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        IconButton(onClick = { viewModel.restoreStrain(s.id) }) { Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) }
-                        IconButton(onClick = { showPermDeleteConfirm = true }) { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) }
-                    }
+                    TrashedStrainRow(s, viewModel, lang)
                 }
             }
 
@@ -727,6 +772,84 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             }
         }
 
+        // Versionsverlauf (Changelog) Card
+        item {
+            var isV122Expanded by remember { mutableStateOf(false) }
+            var isV120Expanded by remember { mutableStateOf(false) }
+            var isV118Expanded by remember { mutableStateOf(false) }
+            var isV115Expanded by remember { mutableStateOf(false) }
+            var isV110Expanded by remember { mutableStateOf(false) }
+            var isV100Expanded by remember { mutableStateOf(false) }
+
+            CollapsibleSettingsCard(
+                title = "Versionsverlauf".translate(lang),
+                isExpanded = expandedSection == "changelog",
+                onToggle = { expandedSection = if (expandedSection == "changelog") null else "changelog" }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // v1.2.2
+                    CollapsibleSubSection(
+                        title = "Version 1.2.2",
+                        isExpanded = isV122Expanded,
+                        onToggle = { isV122Expanded = !isV122Expanded }
+                    ) {
+                        ChangelogDetailText("• " + "New Triple-Tap gesture for reminder settings".translate(lang))
+                        ChangelogDetailText("• " + "Restored 0.1g logging precision".translate(lang))
+                        ChangelogDetailText("• " + "Standardised 'Widget' terminology".translate(lang))
+                        ChangelogDetailText("• " + "Fixed German 'Heute/Gestern' headers".translate(lang))
+                        ChangelogDetailText("• " + "Auto-scroll to top in Journal".translate(lang))
+                        ChangelogDetailText("• " + "Fixed deletion state bug in lists".translate(lang))
+                    }
+                    // v1.2.0
+                    CollapsibleSubSection(
+                        title = "Version 1.2.0",
+                        isExpanded = isV120Expanded,
+                        onToggle = { isV120Expanded = !isV120Expanded }
+                    ) {
+                        ChangelogDetailText("• " + "Cannabis Rain Easter Egg".translate(lang))
+                        ChangelogDetailText("• " + "Smart History: Auto-collapse past days".translate(lang))
+                        ChangelogDetailText("• " + "Excess Counter on Home screen".translate(lang))
+                        ChangelogDetailText("• " + "Natural German localization update".translate(lang))
+                    }
+                    // v1.1.8
+                    CollapsibleSubSection(
+                        title = "Version 1.1.8",
+                        isExpanded = isV118Expanded,
+                        onToggle = { isV118Expanded = !isV118Expanded }
+                    ) {
+                        ChangelogDetailText("• " + "Full ZIP Backup & Restore".translate(lang))
+                        ChangelogDetailText("• " + "Improved data integrity".translate(lang))
+                    }
+                    // v1.1.5
+                    CollapsibleSubSection(
+                        title = "Version 1.1.5",
+                        isExpanded = isV115Expanded,
+                        onToggle = { isV115Expanded = !isV115Expanded }
+                    ) {
+                        ChangelogDetailText("• " + "Home Screen Widgets".translate(lang))
+                        ChangelogDetailText("• " + "Notification Reminders".translate(lang))
+                    }
+                    // v1.1.0
+                    CollapsibleSubSection(
+                        title = "Version 1.1.0",
+                        isExpanded = isV110Expanded,
+                        onToggle = { isV110Expanded = !isV110Expanded }
+                    ) {
+                        ChangelogDetailText("• " + "Theme Engine (Midnight, Pride, etc.)".translate(lang))
+                        ChangelogDetailText("• " + "Custom Launcher Icons".translate(lang))
+                    }
+                    // v1.0.0
+                    CollapsibleSubSection(
+                        title = "Version 1.0.0",
+                        isExpanded = isV100Expanded,
+                        onToggle = { isV100Expanded = !isV100Expanded }
+                    ) {
+                        ChangelogDetailText("• " + "Initial Release: Core tracking".translate(lang))
+                    }
+                }
+            }
+        }
+
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { expandedSection = if (expandedSection == "danger") null else "danger" }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
@@ -735,11 +858,23 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-                    Text("Version 0.8", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                    Text("Version 1.2.2", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
                 }
             }
         }
     }
+}
+
+@Composable
+fun ChangelogDetailText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall.copy(
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp
+        ),
+        modifier = Modifier.padding(start = 28.dp, bottom = 4.dp)
+    )
 }
 
 @Composable
@@ -1019,4 +1154,93 @@ fun triggerImagePicker(onBase64: (String) -> Unit) {
         } 
     }
     input.click()
+}
+
+@Composable
+fun TrashedSessionRow(session: SmokeSession, viewModel: SmokeViewModel, activeLanguage: String) {
+    var isConfirming by remember(session.id) { mutableStateOf(false) }
+
+    LaunchedEffect(isConfirming) {
+        if (isConfirming) {
+            kotlinx.coroutines.delay(3000L)
+            isConfirming = false
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${session.grams.format(1)}g - ${session.strain.ifEmpty { "Default Strain".translate(activeLanguage) }}",
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+            )
+            val instant = Instant.fromEpochMilliseconds(session.timestamp)
+            val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+            Text(
+                text = "${dt.dayOfMonth.toString().padStart(2, '0')}.${dt.monthNumber.toString().padStart(2, '0')}.${dt.year} ${dt.hour.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')}",
+                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+            )
+        }
+        IconButton(onClick = { viewModel.restoreSession(session.id) }) { 
+            Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) 
+        }
+        if (isConfirming) {
+            TextButton(
+                onClick = { viewModel.permanentlyDeleteSession(session.id) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(
+                    text = "Rly?".translate(activeLanguage),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                )
+            }
+        } else {
+            IconButton(onClick = { isConfirming = true }) { 
+                Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) 
+            }
+        }
+    }
+}
+
+@Composable
+fun TrashedStrainRow(strain: StrainEntry, viewModel: SmokeViewModel, activeLanguage: String) {
+    var isConfirming by remember(strain.id) { mutableStateOf(false) }
+
+    LaunchedEffect(isConfirming) {
+        if (isConfirming) {
+            kotlinx.coroutines.delay(3000L)
+            isConfirming = false
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(strain.strainName, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+            Text(
+                text = "${strain.producerCultivar} (${strain.category})",
+                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+            )
+        }
+        IconButton(onClick = { viewModel.restoreStrain(strain.id) }) { 
+            Icon(Icons.Default.Restore, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) 
+        }
+        if (isConfirming) {
+            TextButton(
+                onClick = { viewModel.permanentlyDeleteStrain(strain.id) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(
+                    text = "Rly?".translate(activeLanguage),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                )
+            }
+        } else {
+            IconButton(onClick = { isConfirming = true }) { 
+                Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) 
+            }
+        }
+    }
 }

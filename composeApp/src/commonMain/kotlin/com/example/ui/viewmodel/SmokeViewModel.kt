@@ -149,9 +149,8 @@ class SmokeViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun logSession(grams: Double, strain: String, notes: String, timestamp: Long = Clock.System.now().toEpochMilliseconds()) {
-        val roundedGrams = kotlin.math.round(grams)
-        repository.insertSession(SmokeSession(timestamp = timestamp, grams = roundedGrams, strain = strain, notes = notes))
-        NotificationHelper.notify("GreenTracker", "Smoke logged ;) +${roundedGrams.toInt()}g")
+        repository.insertSession(SmokeSession(timestamp = timestamp, grams = grams, strain = strain, notes = notes))
+        NotificationHelper.notify("GreenTracker", "Smoke logged ;) +${grams.format(1)}g")
     }
 
     fun updateSession(session: SmokeSession) = repository.updateSession(session)
@@ -413,6 +412,36 @@ fun String.translate(lang: String): String {
         "Excess" -> "Überschreitung"
         "Logged" -> "Protokolliert"
         "Days" -> "Tage"
+        "Usage" -> "Verbrauch"
+        "Widget" -> "Widget"
+        "Quick logged from Widget" -> "Schnell-Log über Widget"
+        "Set your preferred application language: English or German." -> "Wähle deine bevorzugte Sprache: Englisch oder Deutsch."
+        "Deleted items are automatically removed after 7 days." -> "Gelöschte Elemente werden nach 7 Tagen automatisch entfernt."
+        "No deleted session logs." -> "Keine gelöschten Logs vorhanden."
+        "No deleted strain entries." -> "Keine gelöschten Einträge vorhanden."
+        "Rly?" -> "Sicher?"
+        "Versionsverlauf" -> "Versionsverlauf"
+        "Cannabis Rain Easter Egg" -> "Cannabis-Regen Easter Egg"
+        "Smart History: Auto-collapse past days" -> "Smart-Historie: Vergangene Tage einklappen"
+        "Excess Counter on Home screen" -> "Limit-Anzeige auf dem Home-Screen"
+        "Natural German localization update" -> "Natürliche deutsche Lokalisierung"
+        "Compact UI navigation bars" -> "Kompaktere Navigationsleisten"
+        "Integer-based tracking" -> "Ganzzahl-basiertes Tracking"
+        "Interactive Changelog in Settings" -> "Interaktiver Versionsverlauf"
+        "Improved Stats: Added Logged-Days timeframe" -> "Bessere Statistik: Anzeige der protokollierten Tage"
+        "Full ZIP Backup & Restore" -> "Vollständiges ZIP-Backup & Wiederherstellung"
+        "Improved data integrity" -> "Verbesserte Datensicherheit"
+        "Home Screen Widgets" -> "Home-Screen Widgets"
+        "Notification Reminders" -> "Erinnerungs-Benachrichtigungen"
+        "Theme Engine (Midnight, Pride, etc.)" -> "Theme-Engine (Midnight, Pride, etc.)"
+        "Custom Launcher Icons" -> "Eigene App-Icons"
+        "Initial Release: Core tracking" -> "Erste Version: Basis-Tracking"
+        "New Triple-Tap gesture for reminder settings" -> "Neuer Dreifach-Tap für Benachrichtigungs-Einstellungen"
+        "Restored 0.1g logging precision" -> "0,1g Logging-Präzision wiederhergestellt"
+        "Standardised 'Widget' terminology" -> "Standardisierte 'Widget'-Terminologie"
+        "Fixed German 'Heute/Gestern' headers" -> "Heute/Gestern Header in der Historie korrigiert"
+        "Auto-scroll to top in Journal" -> "Automatisches Scrollen nach oben im Tagebuch"
+        "Fixed deletion state bug in lists" -> "Fehler beim Lösch-Status in Listen behoben"
         else -> this
     }
 }
