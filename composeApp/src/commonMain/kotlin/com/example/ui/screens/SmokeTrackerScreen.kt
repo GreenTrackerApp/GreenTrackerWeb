@@ -85,6 +85,9 @@ external fun triggerWebDatePicker(onDate: (String) -> Unit): Unit
 }""")
 external fun forceAppUpdate(): Unit
 
+@JsFun("() => { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }")
+external fun isStandalone(): Boolean
+
 @Composable
 fun SmokeTrackerScreen(
     viewModel: SmokeViewModel,
@@ -451,8 +454,11 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
 fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lang: String, viewModel: SmokeViewModel) {
     val dailyGoalGrams by viewModel.dailyGoalGrams.collectAsState()
     val totalGrams = allSessions.sumOf { it.grams }
+    
+    // Fixed scale logic: 50% extra space at the top
     val rawMax = (weeklyStats.map { it.totalGrams } + dailyGoalGrams).maxOfOrNull { it } ?: 1.0
-    val maxGrams = rawMax * 1.5 // Add 50% headroom for labels
+    val maxGrams = rawMax * 1.5
+
     val daysCount = if (allSessions.isEmpty()) 1 else allSessions.map { (it.timestamp - 4 * 3600 * 1000L) / (24 * 3600 * 1000L) }.toSet().size
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)) {
@@ -461,14 +467,20 @@ fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lan
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text("Weekly Trends (Last 7 Days)".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant))
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(32.dp)) // GUARANTEED label space
                     Row(modifier = Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
                         weeklyStats.forEach { stat ->
-                            val heightFrac = (stat.totalGrams / maxGrams).toFloat().coerceIn(0.02f, 1f)
+                            val heightFrac = (stat.totalGrams / maxGrams).toFloat().coerceIn(0.01f, 1f)
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
-                                if (stat.totalGrams > 0.0) Text(stat.totalGrams.format(1), style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold))
-                                Box(modifier = Modifier.fillMaxHeight(heightFrac).width(22.dp).clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(if (stat.totalGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
-                                Spacer(modifier = Modifier.height(6.dp))
+                                if (stat.totalGrams > 0.0) {
+                                    Text(
+                                        text = stat.totalGrams.format(1), 
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
+                                Box(modifier = Modifier.fillMaxHeight(heightFrac).width(24.dp).clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(if (stat.totalGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(stat.dayLabel.translate(lang), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = if (stat.totalGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)))
                             }
                         }
@@ -535,38 +547,80 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                 if (showDeleteConfirm) {
                     AlertDialog(onDismissRequest = {}, title = { Text("Delete Entry?".translate(lang)) }, text = { Text("Move this entry to the trash?".translate(lang)) }, confirmButton = { Button(onClick = { viewModel.deleteStrain(strain.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete".translate(lang)) } }, dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel".translate(lang)) } })
                 }
-                Card(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { if (strain.photoUri.isNotEmpty()) onZoom(strain.photoUri) }, contentAlignment = Alignment.Center) {
+                Card(shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)), modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // Left: Photo + Rating Badge
+                        Box(modifier = Modifier.size(72.dp)) {
+                            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { if (strain.photoUri.isNotEmpty()) onZoom(strain.photoUri) }, contentAlignment = Alignment.Center) {
                                 if (strain.photoUri.isNotEmpty()) {
                                     val bitmap = remember(strain.photoUri) { try { val base64Data = if (strain.photoUri.contains(",")) strain.photoUri.split(",")[1] else strain.photoUri; com.example.util.Base64.decode(base64Data).decodeToImageBitmap() } catch (e: Exception) { null } }
-                                    if (bitmap != null) Image(bitmap = bitmap, contentDescription = "Strain Photo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    if (bitmap != null) Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                     else Icon(Icons.Default.Photo, null, tint = MaterialTheme.colorScheme.primary)
-                                } else Icon(Icons.Default.Spa, null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+                                } else Icon(Icons.Default.Spa, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text(strain.strainName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    val (icon, color, bg) = when(strain.rating) { "THUMBS_DOWN" -> Triple(Icons.Default.ThumbDown, Color.Red, Color(0xFFFFEBEE)); "NEUTRAL" -> Triple(Icons.Default.SentimentNeutral, Color.Gray, Color(0xFFF5F5F5)); else -> Triple(Icons.Default.ThumbUp, Color(0xFF2E7D32), Color(0xFFE8F5E9)) }
-                                    Surface(shape = CircleShape, color = bg, border = BorderStroke(1.dp, color.copy(alpha = 0.5f))) { Icon(icon, null, modifier = Modifier.padding(6.dp).size(16.dp), tint = color) }
-                                }
-                                if (strain.producerCultivar.isNotEmpty()) Text(strain.producerCultivar, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(strain.category, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = when(strain.category){"Indica" -> Color(0xFF9C27B0); "Sativa" -> Color(0xFFFF9800); else -> Color(0xFF4CAF50)})
-                                    if (strain.thcPercentage > 0) Text("THC ${strain.thcPercentage.toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
-                                    if (strain.cbdPercentage > 0) Text("CBD ${strain.cbdPercentage.toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
-                                }
+                            // Rating Badge overlay
+                            val (rIcon, rColor) = when(strain.rating) {
+                                "THUMBS_DOWN" -> Icons.Default.ThumbDown to Color.Red
+                                "NEUTRAL" -> Icons.Default.SentimentNeutral to Color.Gray
+                                else -> Icons.Default.ThumbUp to Color(0xFF2E7D32)
                             }
-                            IconButton(onClick = { onEdit(strain) }) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-                            IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                            Surface(shape = CircleShape, color = rColor, modifier = Modifier.size(24.dp).align(Alignment.BottomEnd).offset(x = 4.dp, y = 4.dp), border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface)) {
+                                Icon(rIcon, null, modifier = Modifier.padding(4.dp), tint = Color.White)
+                            }
                         }
-                        if (strain.notes.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Text(strain.notes, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 2, overflow = TextOverflow.Ellipsis, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic) }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        // Center: Content
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(strain.strainName, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                            if (strain.producerCultivar.isNotEmpty()) Text(strain.producerCultivar, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic), color = MaterialTheme.colorScheme.primary)
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                                // Category Badge
+                                val catColor = when(strain.category) { "Indica" -> Color(0xFF9C27B0); "Sativa" -> Color(0xFFFF9800); else -> Color(0xFF4CAF50) }
+                                JournalBadge(strain.category, catColor)
+                                
+                                if (strain.thcPercentage > 0) JournalBadge("${strain.thcPercentage.toInt()}% THC", MaterialTheme.colorScheme.secondary)
+                                if (strain.cbdPercentage > 0) JournalBadge("${strain.cbdPercentage.toInt()}% CBD", MaterialTheme.colorScheme.tertiary)
+                            }
+
+                            if (strain.notes.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(strain.notes, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+
+                        // Right: Actions
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { onEdit(strain) }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)) {
+                                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), CircleShape)) {
+                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun JournalBadge(text: String, color: Color) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = color.copy(alpha = 0.15f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = color)
+        )
     }
 }
 
@@ -583,6 +637,22 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
     }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp)) {
+        if (!isStandalone()) {
+            item {
+                CollapsibleSettingsCard(
+                    title = "Install App".translate(lang),
+                    isExpanded = expandedSection == "install",
+                    onToggle = { onToggleSection(if (expandedSection == "install") null else "install") }
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("How to install GreenTracker on your device:".translate(lang), fontWeight = FontWeight.Bold)
+                        Text("1. Tap the Share button (square with arrow up)".translate(lang))
+                        Text("2. Scroll down and select 'Add to Home Screen'".translate(lang))
+                        Text("This enables features like Push Notifications on iOS.".translate(lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
         item { Text("Application Settings".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         item { CollapsibleSettingsCard("Language Settings".translate(lang), expandedSection == "lang", onToggle = { onToggleSection(if (expandedSection == "lang") null else "lang") }) {
             Column { Text(text = "Set your preferred application language: English or German.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)); Spacer(modifier = Modifier.height(12.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(selected = lang == "en", onClick = { viewModel.setLanguage("en") }, label = { Text("English") }); FilterChip(selected = lang == "de", onClick = { viewModel.setLanguage("de") }, label = { Text("Deutsch") }) } }

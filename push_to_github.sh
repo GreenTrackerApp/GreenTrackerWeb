@@ -23,10 +23,10 @@ if git diff --cached --quiet; then
 else
     # Commit changes
     echo "Committing changes..."
-    git commit -m "Sync web app v1.2.2: Fix Stats scale, Journal alignment, and German localization"
+    git commit -m "UI Overhaul: Journal redesign, Stats scale fix, and Install App guide (German)"
 fi
 
-# Pull latest changes from remote to avoid [rejected] errors
+# Sync with remote
 echo "Syncing with remote (Pulling latest changes)..."
 if ! git pull --rebase origin main; then
     echo "Error: Conflict detected during pull. Please resolve conflicts manually."
