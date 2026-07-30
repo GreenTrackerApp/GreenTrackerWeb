@@ -455,9 +455,9 @@ fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lan
     val dailyGoalGrams by viewModel.dailyGoalGrams.collectAsState()
     val totalGrams = allSessions.sumOf { it.grams }
     
-    // Fixed scale logic: 50% extra space at the top
+    // Enhanced scale logic: 60% extra space at the top for labels
     val rawMax = (weeklyStats.map { it.totalGrams } + dailyGoalGrams).maxOfOrNull { it } ?: 1.0
-    val maxGrams = rawMax * 1.5
+    val maxGrams = rawMax * 1.6
 
     val daysCount = if (allSessions.isEmpty()) 1 else allSessions.map { (it.timestamp - 4 * 3600 * 1000L) / (24 * 3600 * 1000L) }.toSet().size
 
@@ -467,15 +467,15 @@ fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lan
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text("Weekly Trends (Last 7 Days)".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant))
-                    Spacer(modifier = Modifier.height(32.dp)) // GUARANTEED label space
-                    Row(modifier = Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Spacer(modifier = Modifier.height(44.dp)) // Guaranteed headroom for labels
+                    Row(modifier = Modifier.fillMaxWidth().height(170.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
                         weeklyStats.forEach { stat ->
                             val heightFrac = (stat.totalGrams / maxGrams).toFloat().coerceIn(0.01f, 1f)
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
                                 if (stat.totalGrams > 0.0) {
                                     Text(
                                         text = stat.totalGrams.format(1), 
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                 }
@@ -595,11 +595,11 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
 
                         // Right: Actions
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { onEdit(strain) }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)) {
-                                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            IconButton(onClick = { onEdit(strain) }, modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape)) {
+                                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
-                            IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), CircleShape)) {
-                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                            IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f), CircleShape)) {
+                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -612,14 +612,14 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
 @Composable
 fun JournalBadge(text: String, color: Color) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = color.copy(alpha = 0.15f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(10.dp),
+        color = color.copy(alpha = 0.18f),
+        border = BorderStroke(1.5.dp, color.copy(alpha = 0.5f))
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = color)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, color = color, fontSize = 12.sp)
         )
     }
 }
