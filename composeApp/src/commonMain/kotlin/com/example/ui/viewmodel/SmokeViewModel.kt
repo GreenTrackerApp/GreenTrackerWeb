@@ -53,6 +53,10 @@ class SmokeViewModel(
     private val _quickLogGrams = MutableStateFlow(settings.getFloat("quick_track_grams", 0.2f).toDouble())
     val quickLogGrams: StateFlow<Double> = _quickLogGrams.asStateFlow()
 
+    // App Icon Index
+    private val _activeAppIconIndex = MutableStateFlow(settings.getInt("active_app_icon_index", 1))
+    val activeAppIconIndex: StateFlow<Int> = _activeAppIconIndex.asStateFlow()
+
     // Reminder Interval
     private val _reminderInterval = MutableStateFlow(settings.getInt("reminder_interval_hours", 0))
     val reminderInterval: StateFlow<Int> = _reminderInterval.asStateFlow()
@@ -107,7 +111,7 @@ class SmokeViewModel(
             val now = Clock.System.now().toEpochMilliseconds()
             val todayStart = getStartOfLogicalDay(now, rhythm)
             val todayEnd = todayStart + 24 * 60 * 60 * 1000L - 1L
-            list.filter { it.timestamp in todayStart..todayEnd }
+            list.filter { it.timestamp in todayStart..todayEnd }.sortedByDescending { it.timestamp }
         } catch (e: Exception) { emptyList() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -200,6 +204,10 @@ class SmokeViewModel(
         _quickLogGrams.value = grams
         settings.putFloat("quick_track_grams", grams.toFloat())
     }
+    fun setAppIconIndex(index: Int) {
+        _activeAppIconIndex.value = index
+        settings.putInt("active_app_icon_index", index)
+    }
 
     private fun loadSavedTheme() = CannabisTheme.entries.find { it.id == settings.getString("active_theme_id", "") } ?: CannabisTheme.CLASSIC_HERBAL
     private fun loadSavedLanguage() = settings.getString("app_language", "en")
@@ -225,7 +233,8 @@ class SmokeViewModel(
                 "daily_goal_grams" to _dailyGoalGrams.value.toString(),
                 "widget_max_dosage" to _widgetMaxDosage.value.toString(),
                 "reminder_interval_hours" to _reminderInterval.value.toString(),
-                "quick_track_grams" to _quickLogGrams.value.toString()
+                "quick_track_grams" to _quickLogGrams.value.toString(),
+                "active_app_icon_index" to _activeAppIconIndex.value.toString()
             )
         )
         return json.encodeToString(data)
@@ -242,6 +251,7 @@ class SmokeViewModel(
             data.settings["widget_max_dosage"]?.toDoubleOrNull()?.let { setWidgetMaxDosage(it) }
             data.settings["reminder_interval_hours"]?.toIntOrNull()?.let { setReminderInterval(it) }
             data.settings["quick_track_grams"]?.toDoubleOrNull()?.let { setQuickLogGrams(it) }
+            data.settings["active_app_icon_index"]?.toIntOrNull()?.let { setAppIconIndex(it) }
             true
         } catch (e: Exception) {
             false
@@ -300,6 +310,8 @@ fun String.translate(lang: String): String {
         "Settings" -> "Einstellungen"
         "Application Settings" -> "Anwendungseinstellungen"
         "Today's Consumption" -> "Heutiger Verbrauch"
+        "Reminder active: Log sessions every %dh for accurate statistics!" -> "Erinnerung aktiv: Logge alle %dh für genaue Statistiken!"
+        "Reminders are currently off. Tap Settings to enable push notifications." -> "Erinnerungen sind aus. Tippe auf Einstellungen zum Aktivieren."
         "Sessions" -> "Sitzungen"
         "Logging" -> "Logging"
         "Slide to set log amount" -> "Schieberegler zum Einstellen"
@@ -327,13 +339,15 @@ fun String.translate(lang: String): String {
         "Save Log" -> "Speichern"
         "Edit Time" -> "Zeit bearbeiten"
         "Time of Session:" -> "Uhrzeit:"
+        "Changelog" -> "Versionsverlauf"
+        "Notifications" -> "Benachrichtigungen"
+        "Danger Zone" -> "Daten löschen"
         "Backup & Restore" -> "Backup & Wiederherstellung"
         "Save Backup" -> "Backup speichern"
         "Import Backup" -> "Backup importieren"
         "Trash" -> "Papierkorb"
         "Deleted Session Logs" -> "Gelöschte Sitzungen"
         "Deleted Journal Entries" -> "Gelöschte Journal-Einträge"
-        "Deleted items are automatically removed after 7 days." -> "Gelöschte Elemente werden nach 7 Tagen automatisch entfernt."
         "Empty Trash" -> "Papierkorb leeren"
         "Are you sure?" -> "Bist du sicher?"
         "Confirm Delete" -> "Löschen bestätigen"
@@ -347,6 +361,7 @@ fun String.translate(lang: String): String {
         "Language Settings" -> "Spracheinstellungen"
         "Theme Settings" -> "Theme-Einstellungen"
         "App Icon" -> "App-Icon"
+        "Choose your preferred App Icon. Changes apply automatically across the web dashboard." -> "Wähle dein bevorzugtes App-Icon. Änderungen werden automatisch im Dashboard übernommen."
         "Daily Dosage Limit" -> "Heutiges Limit"
         "Day Rhythm" -> "Tagesrhythmus"
         "Start of Day" -> "Tagesbeginn"
@@ -420,7 +435,6 @@ fun String.translate(lang: String): String {
         "No deleted session logs." -> "Keine gelöschten Logs vorhanden."
         "No deleted strain entries." -> "Keine gelöschten Einträge vorhanden."
         "Rly?" -> "Sicher?"
-        "Versionsverlauf" -> "Versionsverlauf"
         "Cannabis Rain Easter Egg" -> "Cannabis-Regen Easter Egg"
         "Smart History: Auto-collapse past days" -> "Smart-Historie: Vergangene Tage einklappen"
         "Excess Counter on Home screen" -> "Limit-Anzeige auf dem Home-Screen"

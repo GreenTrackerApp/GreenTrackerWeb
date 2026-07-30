@@ -1,0 +1,29 @@
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/resources
+!**/src/test/resources
+
+### Android ###
+*.apk
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+.artifacts/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### macOS ###
+.DS_Store
+
+### Node ###
+node_modules/
+package-lock.json

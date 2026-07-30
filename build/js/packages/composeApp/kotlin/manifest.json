@@ -1,8 +1,0 @@
-{
-  "name": "GreenTracker Web",
-  "short_name": "GreenTracker",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#0F1410",
-  "theme_color": "#4E7E5A"
-}
