@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - GreenTracker</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #2E7D32; }
+        h2 { color: #388E3C; margin-top: 30px; }
+        .lang-switch { background: #f5f5f5; padding: 10px; border-radius: 8px; margin-bottom: 20px; }
+        .policy-section { display: none; }
+        .policy-section.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="lang-switch">
+        <button onclick="showLang('en')">English</button>
+        <button onclick="showLang('de')">Deutsch</button>
+    </div>
+
+    <div id="en" class="policy-section active">
+        <h1>Privacy Policy</h1>
+        <p>Last updated: July 31, 2026</p>
+        <p>GreenTracker is committed to protecting your privacy. This Privacy Policy explains how we handle your information when you use our mobile and web applications.</p>
+
+        <h2>1. Data Collection & Storage</h2>
+        <p>GreenTracker is designed to be a privacy-first application. All data you log (smoke sessions, strain entries, notes, and photos) is stored strictly locally on your device's internal storage using a local database. We do not transmit your consumption logs to any external servers.</p>
+
+        <h2>2. Permissions</h2>
+        <ul>
+            <li><strong>Camera:</strong> Used only if you choose to take photos of strains for your journal. Photos are stored locally.</li>
+            <li><strong>Notifications:</strong> Used to send optional logging reminders as configured in your settings.</li>
+        </ul>
+
+        <h2>3. Data Backup</h2>
+        <p>If you use the Backup feature, a file is created locally for you to share or store. This data remains under your control at all times.</p>
+
+        <h2>4. Third-Party Services</h2>
+        <p>The web version of GreenTracker is hosted on GitHub Pages. GitHub may collect basic server logs for security and maintenance purposes, governed by GitHub's privacy policy.</p>
+
+        <h2>5. Contact</h2>
+        <p>If you have any questions, please contact the developer via the official project repository.</p>
+    </div>
+
+    <div id="de" class="policy-section">
+        <h1>Datenschutzerklärung</h1>
+        <p>Zuletzt aktualisiert: 31. Juli 2026</p>
+        <p>GreenTracker setzt sich für den Schutz Ihrer Privatsphäre ein. Diese Datenschutzerklärung erläutert, wie wir mit Ihren Informationen umgehen.</p>
+
+        <h2>1. Datenerhebung & Speicherung</h2>
+        <p>GreenTracker ist als Privacy-First-Anwendung konzipiert. Alle von Ihnen protokollierten Daten (Sitzungen, Sorteneinträge, Notizen und Fotos) werden ausschließlich lokal auf dem internen Speicher Ihres Geräts gespeichert. Wir übertragen Ihre Konsumprotokolle nicht an externe Server.</p>
+
+        <h2>2. Berechtigungen</h2>
+        <ul>
+            <li><strong>Kamera:</strong> Wird nur verwendet, wenn Sie Fotos von Sorten für Ihr Tagebuch aufnehmen. Fotos werden lokal gespeichert.</li>
+            <li><strong>Benachrichtigungen:</strong> Wird verwendet, um optionale Erinnerungen zu senden, wie in Ihren Einstellungen konfiguriert.</li>
+        </ul>
+
+        <h2>3. Datensicherung</h2>
+        <p>Wenn Sie die Backup-Funktion nutzen, wird lokal eine Datei erstellt, die Sie teilen oder speichern können. Diese Daten bleiben jederzeit unter Ihrer Kontrolle.</p>
+
+        <h2>4. Drittanbieter</h2>
+        <p>Die Webversion von GreenTracker wird auf GitHub Pages gehostet. GitHub kann grundlegende Serverprotokolle für Sicherheits- und Wartungszwecke erfassen, gemäß der Datenschutzerklärung von GitHub.</p>
+
+        <h2>5. Kontakt</h2>
+        <p>Bei Fragen wenden Sie sich bitte über das offizielle Projekt-Repository an den Entwickler.</p>
+    </div>
+
+    <script>
+        function showLang(lang) {
+            document.querySelectorAll('.policy-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(lang).classList.add('active');
+        }
+    </script>
+</body>
+</html>
