@@ -58,7 +58,7 @@ import kotlin.js.*
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
 enum class AppTab {
-    HOME, HISTORY, STATS, JOURNAL, SETTINGS
+    HOME, HISTORY, STATS, JOURNAL, SETTINGS, PRIVACY
 }
 
 enum class HistoryFilter {
@@ -182,7 +182,8 @@ fun SmokeTrackerScreen(
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
                 AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, viewModel)
                 AppTab.JOURNAL -> JournalScreen(allStrains, activeLanguage, viewModel, activeAppIconIndex, onEdit = { editingStrain = it; showAddStrainDialog = true }, onZoom = { zoomedPhoto = it })
-                AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains, activeAppIconIndex, expandedSection, onToggleSection = { expandedSection = it })
+                AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains, activeAppIconIndex, expandedSection, onToggleSection = { expandedSection = it }, onNavigateToPrivacy = { currentTab = AppTab.PRIVACY })
+                AppTab.PRIVACY -> PrivacyPolicyScreen(activeLanguage, onBack = { currentTab = AppTab.SETTINGS })
             }
         }
     }
@@ -625,7 +626,7 @@ fun JournalBadge(text: String, color: Color) {
 }
 
 @Composable
-fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyGoalGrams: Double, lang: String, trashedSessions: List<SmokeSession>, trashedStrains: List<StrainEntry>, activeAppIconIndex: Int, expandedSection: String?, onToggleSection: (String?) -> Unit) {
+fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyGoalGrams: Double, lang: String, trashedSessions: List<SmokeSession>, trashedStrains: List<StrainEntry>, activeAppIconIndex: Int, expandedSection: String?, onToggleSection: (String?) -> Unit, onNavigateToPrivacy: () -> Unit) {
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
     val reminderInterval by viewModel.reminderInterval.collectAsState()
     var isSessionsTrashExpanded by remember { mutableStateOf(false) }
@@ -706,6 +707,22 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     CollapsibleSubSection(title = "Version 1.0.0", isExpanded = v100, onToggle = { v100 = !v100 }) { 
                         ChangelogDetailText("• " + "Initial Release: Core tracking".translate(lang)) 
                     }
+                }
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable { onNavigateToPrivacy() },
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Privacy Policy / Datenschutzerklärung".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null)
                 }
             }
         }

@@ -337,6 +337,7 @@ fun String.translate(lang: String): String {
         "Strain / Variety" -> "Sorte / Varietät"
         "Session Notes" -> "Notizen"
         "Save Log" -> "Speichern"
+        "Privacy Policy / Datenschutzerklärung" -> "Datenschutzerklärung"
         "Install App" -> "App installieren"
         "How to install GreenTracker on your device:" -> "So installierst du GreenTracker auf deinem Gerät:"
         "1. Tap the Share button (square with arrow up)" -> "1. Tippe auf den Teilen-Button (Quadrat mit Pfeil nach oben)"
