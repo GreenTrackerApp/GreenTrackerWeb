@@ -90,6 +90,12 @@ external fun forceAppUpdate(): Unit
 @JsFun("() => { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }")
 external fun isStandalone(): Boolean
 
+@JsFun("() => { return /iPhone|iPad|iPod/i.test(window.navigator.userAgent); }")
+external fun isIos(): Boolean
+
+@JsFun("() => { return /Android/i.test(window.navigator.userAgent); }")
+external fun isAndroid(): Boolean
+
 @Composable
 fun SmokeTrackerScreen(
     viewModel: SmokeViewModel,
@@ -641,17 +647,43 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp)) {
         if (!isStandalone()) {
-            item {
-                CollapsibleSettingsCard(
-                    title = "Install App".translate(lang),
-                    isExpanded = expandedSection == "install",
-                    onToggle = { onToggleSection(if (expandedSection == "install") null else "install") }
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("How to install GreenTracker on your device:".translate(lang), fontWeight = FontWeight.Bold)
-                        Text("1. Tap the Share button (square with arrow up)".translate(lang))
-                        Text("2. Scroll down and select 'Add to Home Screen'".translate(lang))
-                        Text("This enables features like Push Notifications on iOS.".translate(lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            val isUserOnIos = isIos()
+            val isUserOnAndroid = isAndroid()
+
+            if (isUserOnIos || isUserOnAndroid) {
+                item {
+                    CollapsibleSettingsCard(
+                        title = "Install App".translate(lang),
+                        isExpanded = expandedSection == "install",
+                        onToggle = { onToggleSection(if (expandedSection == "install") null else "install") }
+                    ) {
+                        if (isUserOnIos) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("How to install GreenTracker on your device:".translate(lang), fontWeight = FontWeight.Bold)
+                                Text("1. Tap the Share button (square with arrow up)".translate(lang))
+                                Text("2. Scroll down and select 'Add to Home Screen'".translate(lang))
+                                Text("This enables features like Push Notifications on iOS.".translate(lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        } else if (isUserOnAndroid) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                Text("Download GreenTracker".translate(lang), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                                Button(
+                                    onClick = { window.open("https://play.google.com/store/apps/details?id=com.greentracker.app", "_blank") },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Column {
+                                            Text("GET IT ON", fontSize = 10.sp, color = Color.White)
+                                            Text("Google Play", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -731,7 +763,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { onToggleSection(if (expandedSection == "danger") null else "danger") }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
-        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.2.2", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
+        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
     }
 }
 

@@ -339,6 +339,7 @@ fun String.translate(lang: String): String {
         "Save Log" -> "Speichern"
         "Privacy Policy" -> "Datenschutzerklärung"
         "Install App" -> "App installieren"
+        "Download GreenTracker" -> "GreenTracker herunterladen"
         "How to install GreenTracker on your device:" -> "So installierst du GreenTracker auf deinem Gerät:"
         "1. Tap the Share button (square with arrow up)" -> "1. Tippe auf den Teilen-Button (Quadrat mit Pfeil nach oben)"
         "2. Scroll down and select 'Add to Home Screen'" -> "2. Scrolle nach unten und wähle 'Zum Home-Bildschirm'"
