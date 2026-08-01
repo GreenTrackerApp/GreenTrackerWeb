@@ -669,17 +669,17 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                                 Text("Download GreenTracker".translate(lang), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
                                 
                                 val isDe = lang.lowercase().startsWith("de")
-                                val badgeRes = if (isDe) "google_play_badge_de.png" else "google_play_badge_en.png"
+                                val badgeResName = if (isDe) "google_play_badge_de" else "google_play_badge_en"
                                 
                                 Box(
                                     modifier = Modifier
-                                        .height(58.dp)
+                                        .height(56.dp)
                                         .clickable { 
                                             window.open("https://play.google.com/store/apps/details?id=com.greentracker.app", "_blank") 
                                         }
                                 ) {
                                     Image(
-                                        painter = org.jetbrains.compose.resources.painterResource(org.jetbrains.compose.resources.DrawableResource("drawable/$badgeRes")),
+                                        painter = org.jetbrains.compose.resources.painterResource(org.jetbrains.compose.resources.DrawableResource("drawable/$badgeResName")),
                                         contentDescription = "Get it on Google Play",
                                         modifier = Modifier.fillMaxHeight(),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -766,7 +766,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { onToggleSection(if (expandedSection == "danger") null else "danger") }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
-        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
+        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.1", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
     }
 }
 
