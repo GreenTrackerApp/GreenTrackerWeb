@@ -720,12 +720,24 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         } }
         item { CollapsibleSettingsCard("Notifications".translate(lang), expandedSection == "notif", onToggle = { onToggleSection(if (expandedSection == "notif") null else "notif") }) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { 
-                Text("Reminders:".translate(lang), fontWeight = FontWeight.Bold); 
-                listOf(0 to "Off", 1 to "1h", 2 to "2h", 4 to "4h", 8 to "8h").forEach { (h, label) -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { viewModel.setReminderInterval(h) }) { RadioButton(selected = reminderInterval == h, onClick = { viewModel.setReminderInterval(h) }); Text(label.translate(lang)) } }; 
+                Text("Smoke Reminder Interval".translate(lang), fontWeight = FontWeight.Bold)
                 
-                Spacer(modifier = Modifier.height(8.dp)); 
-                val quickG by viewModel.quickLogGrams.collectAsState(); 
-                Text("Quick Log Amount".translate(lang), fontWeight = FontWeight.Bold); 
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(0 to "Off", 1 to "1h", 2 to "2h", 4 to "4h", 8 to "8h").forEach { (h, label) ->
+                        FilterChip(
+                            selected = reminderInterval == h,
+                            onClick = { viewModel.setReminderInterval(h) },
+                            label = { Text(label.translate(lang), fontWeight = FontWeight.Bold) }
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                val quickG by viewModel.quickLogGrams.collectAsState()
+                Text("Quick Log Amount".translate(lang), fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically) { Slider(value = quickG.toFloat(), onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, valueRange = 0.0f..5.0f, modifier = Modifier.weight(1f)); Text(quickG.format(1) + "g", modifier = Modifier.width(48.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)) }; 
                 
                 Spacer(modifier = Modifier.height(16.dp))
