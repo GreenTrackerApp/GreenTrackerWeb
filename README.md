@@ -1,7 +1,7 @@
 Hallo Leute und Freunde des Grünens
 
 GreenTrackerApp Web die erste Live Version die super funktioniert und eine Kopie meiner Android App ist. 
-( Die folgt bald im PlayStore)
+(Die folgt bald im PlayStore, aktuell in Verifizierung)
 
 Mit Hilfe am Anfang vom Google Android Studio
 und dann Android Studio und Agent,
