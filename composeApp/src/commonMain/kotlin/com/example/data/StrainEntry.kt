@@ -13,6 +13,8 @@ data class StrainEntry(
     val rating: String = "THUMBS_UP",
     val notes: String = "",
     val photoUri: String = "",
+    val needsReview: Boolean = false,
+    val reviewReminderTime: Long? = null,
     val createdAt: Long = 0L,
     val isDeleted: Boolean = false,
     val deletedAt: Long? = null

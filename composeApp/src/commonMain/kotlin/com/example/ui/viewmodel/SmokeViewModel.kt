@@ -53,6 +53,10 @@ class SmokeViewModel(
     private val _quickLogGrams = MutableStateFlow(settings.getFloat("quick_track_grams", 0.2f).toDouble())
     val quickLogGrams: StateFlow<Double> = _quickLogGrams.asStateFlow()
 
+    // Strain Review Reminder Days
+    private val _reviewReminderDays = MutableStateFlow(settings.getInt("review_reminder_days", 7))
+    val reviewReminderDays: StateFlow<Int> = _reviewReminderDays.asStateFlow()
+
     // App Icon Index
     private val _activeAppIconIndex = MutableStateFlow(settings.getInt("active_app_icon_index", 1))
     val activeAppIconIndex: StateFlow<Int> = _activeAppIconIndex.asStateFlow()
@@ -81,6 +85,7 @@ class SmokeViewModel(
     init {
         cleanExpiredTrash()
         startReminderTimer()
+        checkPendingReviews()
     }
 
     private fun startReminderTimer() {
@@ -94,6 +99,18 @@ class SmokeViewModel(
                         "Time to log your session! 🌿".translate(_language.value)
                     )
                 }
+            }
+        }
+    }
+
+    private fun checkPendingReviews() {
+        viewModelScope.launch {
+            val now = Clock.System.now().toEpochMilliseconds()
+            allStrains.value.filter { it.needsReview && it.reviewReminderTime != null && it.reviewReminderTime!! <= now }.forEach { strain ->
+                NotificationHelper.notify(
+                    "Time to review! 🌿".translate(_language.value),
+                    "How do you like '${strain.strainName}'? Rate it now.".translate(_language.value)
+                )
             }
         }
     }
@@ -167,8 +184,23 @@ class SmokeViewModel(
     fun emptyAllTrash() = repository.emptyTrash()
     fun clearAll() = repository.clearAll()
 
-    fun addStrain(name: String, producer: String, cat: String, thc: Double, cbd: Double, rat: String, notes: String, photo: String) {
-        repository.insertStrain(StrainEntry(strainName = name, producerCultivar = producer, category = cat, thcPercentage = thc, cbdPercentage = cbd, rating = rat, notes = notes, photoUri = photo, createdAt = Clock.System.now().toEpochMilliseconds()))
+    fun addStrain(name: String, producer: String, cat: String, thc: Double, cbd: Double, rat: String, notes: String, photo: String, needsReview: Boolean = false) {
+        val now = Clock.System.now().toEpochMilliseconds()
+        val reviewTime = if (needsReview) now + _reviewReminderDays.value * 24 * 60 * 60 * 1000L else null
+        
+        repository.insertStrain(StrainEntry(
+            strainName = name, 
+            producerCultivar = producer, 
+            category = cat, 
+            thcPercentage = thc, 
+            cbdPercentage = cbd, 
+            rating = rat, 
+            notes = notes, 
+            photoUri = photo, 
+            needsReview = needsReview,
+            reviewReminderTime = reviewTime,
+            createdAt = now
+        ))
         NotificationHelper.notify("GreenTracker", "Sorte hinzugefügt".translate(_language.value))
     }
     fun updateStrain(entry: StrainEntry) = repository.updateStrain(entry)
@@ -207,6 +239,11 @@ class SmokeViewModel(
     fun setAppIconIndex(index: Int) {
         _activeAppIconIndex.value = index
         settings.putInt("active_app_icon_index", index)
+    }
+
+    fun setReviewReminderDays(days: Int) {
+        _reviewReminderDays.value = days
+        settings.putInt("review_reminder_days", days)
     }
 
     private fun loadSavedTheme() = CannabisTheme.entries.find { it.id == settings.getString("active_theme_id", "") } ?: CannabisTheme.CLASSIC_HERBAL
@@ -458,11 +495,16 @@ fun String.translate(lang: String): String {
         "Initial Release: Core tracking" -> "Erste Version: Basis-Tracking"
         "Restored 0.1g logging precision" -> "0,1g Logging-Präzision wiederhergestellt"
         "Fixed German 'Heute/Gestern' headers" -> "Heute/Gestern Header in der Historie korrigiert"
-        "Auto-scroll to top in Journal" -> "Automatisches Scrollen nach oben im Tagebuch"
         "Fixed deletion state bug in lists" -> "Fehler beim Lösch-Status in Listen behoben"
         "Platform Modernization: Android 16 (API 36)" -> "Plattform-Modernisierung: Android 16 (API 36)"
         "Java 17 Update for performance & security" -> "Java 17 Update für Performance & Sicherheit"
         "Met 2026 Google Play Store technical requirements" -> "Technische Anforderungen für Google Play 2026 erfüllt"
+        "Review Later" -> "Später bewerten"
+        "Remind me to rate this strain in a few days" -> "Erinnere mich in ein paar Tagen an die Bewertung"
+        "Needs Review" -> "Offene Bewertungen"
+        "Review Reminder Period" -> "Zeitraum für Bewertung"
+        "Time to review! 🌿" -> "Zeit für eine Bewertung! 🌿"
+        "How do you like '%s'? Rate it now." -> "Wie gefällt dir '%s'? Bewerte die Sorte jetzt."
         "Max.:" -> "Max.:"
         "Eintrag aktualisiert" -> "Eintrag aktualisiert"
         "Sorte hinzugefügt" -> "Sorte hinzugefügt"
