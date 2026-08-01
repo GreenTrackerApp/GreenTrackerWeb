@@ -58,6 +58,8 @@ import org.w3c.files.get
 import kotlin.js.*
 
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import org.jetbrains.compose.resources.painterResource
+import greentrackerweb.composeapp.generated.resources.*
 
 enum class AppTab {
     HOME, HISTORY, STATS, JOURNAL, SETTINGS, PRIVACY
@@ -669,7 +671,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                                 Text("Download GreenTracker".translate(lang), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
                                 
                                 val isDe = lang.lowercase().startsWith("de")
-                                val badgeResName = if (isDe) "google_play_badge_de" else "google_play_badge_en"
+                                val badgeRes = if (isDe) Res.drawable.google_play_badge_de else Res.drawable.google_play_badge_en
                                 
                                 Box(
                                     modifier = Modifier
@@ -679,7 +681,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                                         }
                                 ) {
                                     Image(
-                                        painter = org.jetbrains.compose.resources.painterResource(org.jetbrains.compose.resources.DrawableResource("drawable/$badgeResName")),
+                                        painter = painterResource(badgeRes),
                                         contentDescription = "Get it on Google Play",
                                         modifier = Modifier.fillMaxHeight(),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
