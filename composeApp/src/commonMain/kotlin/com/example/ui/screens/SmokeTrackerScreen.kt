@@ -899,51 +899,45 @@ fun PrivacyPolicyScreen(lang: String, onBack: () -> Unit) {
 @Composable
 fun PrivacyTextEnglish() {
     Text("Privacy Policy", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Text("\nLast updated: July 31, 2026\n", style = MaterialTheme.typography.bodySmall)
-    Text("GreenTracker (\"we\", \"our\", or \"us\") is committed to protecting your privacy. This Privacy Policy explains how we handle your information when you use our mobile and web applications.\n", style = MaterialTheme.typography.bodyMedium)
+    Text("\nLast updated: August 1, 2026\n", style = MaterialTheme.typography.bodySmall)
+    Text("GreenTrackerDev is committed to protecting your privacy. This Privacy Policy explains how we handle your information when you use our mobile and web applications (\"GreenTracker\").\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("1. Data Collection & Storage")
-    Text("GreenTracker is designed to be a privacy-first application. All data you log (smoke sessions, strain entries, notes, and photos) is stored strictly locally on your device's internal storage using a local database. We do not transmit your consumption logs to any external servers.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("1. Data Controller & Contact")
+    Text("The operator and data controller of this application is:\nDeveloper: GreenTrackerDev\nEmail: GreenTracker420app@gmail.com\n\nIf you have any questions about this Privacy Policy, please contact us directly via email.\n", style = MaterialTheme.typography.bodyMedium)
+
+    PrivacyHeader("2. Data Collection & Storage")
+    Text("GreenTracker is designed to be a privacy-first application. All data you log (smoke sessions, strain entries, notes, and photos) is stored strictly locally on your device's internal storage using a local database. We do not transmit your consumption logs, files, or personal information to any external servers.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("2. Permissions")
-    Text("• Camera: Used only if you choose to take photos of strains for your journal. Photos are stored locally.\n• Notifications: Used to send optional logging reminders as configured in your settings.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("3. Device Permissions")
+    Text("To provide its features, the app requires specific device permissions. All data accessed via these permissions stays entirely on your device (phone or browser):\n\n• Camera / Photos: Used only if you choose to take or upload photos of strains for your journal. These photos are processed and stored locally on your device. We have no access to your camera feed or your photo library.\n• Notifications: Used to send optional logging reminders as configured in your settings. No user data is tracked or transmitted for this purpose.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("3. Data Backup")
-    Text("If you use the Backup feature, a file is created locally for you to share or store. This data remains under your control at all times.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("4. Data Backup")
+    Text("If you use the Backup feature, a backup file is created locally on your device. You can choose to share or store this file yourself. This data remains under your absolute control at all times.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("4. Third-Party Services")
-    Text("The web version of GreenTracker is hosted on GitHub Pages. GitHub may collect basic server logs (e.g., IP addresses) for security and maintenance purposes, governed by GitHub's privacy policy.\n", style = MaterialTheme.typography.bodyMedium)
-    
-    PrivacyHeader("5. Changes to This Policy")
-    Text("We may update our Privacy Policy from time to time. You are advised to review this page periodically for any changes.\n", style = MaterialTheme.typography.bodyMedium)
-    
-    PrivacyHeader("6. Contact")
-    Text("If you have any questions, please contact the developer via the official project repository.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("5. Third-Party Services")
+    Text("The web version of GreenTracker is hosted on GitHub Pages. GitHub may collect basic server logs (such as IP addresses) for security and maintenance purposes, governed by GitHub's privacy policy. The app itself does not use any third-party tracking, analytics, or advertising frameworks.\n", style = MaterialTheme.typography.bodyMedium)
 }
 
 @Composable
 fun PrivacyTextGerman() {
     Text("Datenschutzerklärung", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    Text("\nZuletzt aktualisiert: 31. Juli 2026\n", style = MaterialTheme.typography.bodySmall)
-    Text("GreenTracker (\"wir\", \"uns\" oder \"unser\") setzt sich für den Schutz Ihrer Privatsphäre ein. Diese Datenschutzerklärung erläutert, wie wir mit Ihren Informationen umgehen.\n", style = MaterialTheme.typography.bodyMedium)
+    Text("\nZuletzt aktualisiert: 1. August 2026\n", style = MaterialTheme.typography.bodySmall)
+    Text("GreenTrackerDev setzt sich für den Schutz Ihrer Privatsphäre ein. Diese Datenschutzerklärung erläutert, wie wir mit Ihren Informationen umgehen, wenn Sie unsere mobilen und Web-Anwendungen (\"GreenTracker\") nutzen.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("1. Datenerhebung \u0026 Speicherung")
-    Text("GreenTracker ist als Privacy-First-Anwendung konzipiert. Alle von Ihnen protokollierten Daten (Sitzungen, Sorteneinträge, Notizen und Fotos) werden ausschließlich lokal auf dem internen Speicher Ihres Geräts gespeichert. Wir übertragen Ihre Konsumprotokolle nicht an externe Server.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("1. Verantwortlicher & Kontakt")
+    Text("Der Betreiber und Verantwortliche für diese Anwendung ist:\nEntwickler: GreenTrackerDev\nE-Mail: GreenTracker420app@gmail.com\n\nBei Fragen zu dieser Datenschutzerklärung wenden Sie sich bitte direkt per E-Mail an uns.\n", style = MaterialTheme.typography.bodyMedium)
+
+    PrivacyHeader("2. Datenerhebung & Speicherung")
+    Text("GreenTracker ist als Privacy-First-Anwendung konzipiert. Alle von Ihnen protokollierten Daten (Sitzungen, Sorteneinträge, Notizen und Fotos) werden ausschließlich lokal auf dem internen Speicher Ihres Geräts gespeichert. Wir übertragen Ihre Konsumprotokolle, Dateien oder persönlichen Informationen nicht an externe Server.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("2. Berechtigungen")
-    Text("• Kamera: Wird nur verwendet, wenn Sie Fotos von Sorten für Ihr Tagebuch aufnehmen. Fotos werden lokal gespeichert.\n• Benachrichtigungen: Wird verwendet, um optionale Erinnerungen zu senden, wie in Ihren Einstellungen konfiguriert.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("3. Geräteberechtigungen")
+    Text("Um die Funktionen bereitzustellen, benötigt die App bestimmte Berechtigungen. Alle Daten, auf die über diese Berechtigungen zugegriffen wird, verbleiben vollständig auf Ihrem Gerät (Handy oder Browser):\n\n• Kamera / Fotos: Wird nur verwendet, wenn Sie Fotos von Sorten für Ihr Tagebuch aufnehmen oder hochladen möchten. Diese Fotos werden lokal auf Ihrem Gerät verarbeitet und gespeichert. Wir haben keinen Zugriff auf Ihren Kamera-Feed oder Ihre Foto-Bibliothek.\n• Benachrichtigungen: Wird verwendet, um optionale Erinnerungen zu senden, wie in Ihren Einstellungen konfiguriert. Zu diesem Zweck werden keine Benutzerdaten verfolgt oder übertragen.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("3. Datensicherung")
-    Text("Wenn Sie die Backup-Funktion nutzen, wird lokal eine Datei erstellt, die Sie teilen oder speichern können. Diese Daten bleiben jederzeit unter Ihrer Kontrolle.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("4. Datensicherung")
+    Text("Wenn Sie die Backup-Funktion nutzen, wird lokal auf Ihrem Gerät eine Backup-Datei erstellt. Sie können wählen, ob Sie diese Datei selbst teilen oder speichern möchten. Diese Daten bleiben jederzeit unter Ihrer absoluten Kontrolle.\n", style = MaterialTheme.typography.bodyMedium)
     
-    PrivacyHeader("4. Drittanbieter")
-    Text("Die Webversion von GreenTracker wird auf GitHub Pages gehostet. GitHub kann grundlegende Serverprotokolle (z. B. IP-Adressen) für Sicherheits- und Wartungszwecke erfassen, gemäß der Datenschutzerklärung von GitHub.\n", style = MaterialTheme.typography.bodyMedium)
-    
-    PrivacyHeader("5. Änderungen dieser Erklärung")
-    Text("Wir können unsere Datenschutzerklärung von Zeit zu Zeit aktualisieren. Es wird empfohlen, diese Seite regelmäßig auf Änderungen zu überprüfen.\n", style = MaterialTheme.typography.bodyMedium)
-    
-    PrivacyHeader("6. Kontakt")
-    Text("Bei Fragen wenden Sie sich bitte über das offizielle Projekt-Repository an den Entwickler.\n", style = MaterialTheme.typography.bodyMedium)
+    PrivacyHeader("5. Drittanbieter")
+    Text("Die Webversion von GreenTracker wird auf GitHub Pages gehostet. GitHub kann grundlegende Serverprotokolle (wie IP-Adressen) für Sicherheits- und Wartungszwecke erfassen, gemäß der Datenschutzerklärung von GitHub. Die App selbst verwendet keine Drittanbieter-Tracking-, Analyse- oder Werbe-Frameworks.\n", style = MaterialTheme.typography.bodyMedium)
 }
 
 @Composable
