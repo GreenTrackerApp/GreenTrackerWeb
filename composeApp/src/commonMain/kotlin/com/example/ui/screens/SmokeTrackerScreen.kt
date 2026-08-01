@@ -665,22 +665,25 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                                 Text("This enables features like Push Notifications on iOS.".translate(lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                         } else if (isUserOnAndroid) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                                 Text("Download GreenTracker".translate(lang), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                                Button(
-                                    onClick = { window.open("https://play.google.com/store/apps/details?id=com.greentracker.app", "_blank") },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Column {
-                                            Text("GET IT ON", fontSize = 10.sp, color = Color.White)
-                                            Text("Google Play", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                                
+                                val isDe = lang.lowercase().startsWith("de")
+                                val badgeRes = if (isDe) "google_play_badge_de.png" else "google_play_badge_en.png"
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .height(58.dp)
+                                        .clickable { 
+                                            window.open("https://play.google.com/store/apps/details?id=com.greentracker.app", "_blank") 
                                         }
-                                    }
+                                ) {
+                                    Image(
+                                        painter = org.jetbrains.compose.resources.painterResource(org.jetbrains.compose.resources.DrawableResource("drawable/$badgeRes")),
+                                        contentDescription = "Get it on Google Play",
+                                        modifier = Modifier.fillMaxHeight(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                    )
                                 }
                             }
                         }
