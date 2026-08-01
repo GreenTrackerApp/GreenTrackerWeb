@@ -780,18 +780,18 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("App Maintenance".translate(lang), expandedSection == "maint", onToggle = { onToggleSection(if (expandedSection == "maint") null else "maint") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Check for updates or refresh the app cache.".translate(lang), style = MaterialTheme.typography.bodySmall); Button(onClick = { forceAppUpdate() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh".translate(lang)) } }
         } }
-        item { var v140 by remember { mutableStateOf(false) }; var v130 by remember { mutableStateOf(false) }; var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
+        item { var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
             CollapsibleSettingsCard(title = "Changelog".translate(lang), isExpanded = expandedSection == "changelog", onToggle = { onToggleSection(if (expandedSection == "changelog") null else "changelog") }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CollapsibleSubSection(title = "Version 1.4.0", isExpanded = v140, onToggle = { v140 = !v140 }) { 
+                    CollapsibleSubSection(title = "Version 1.2.2", isExpanded = v122, onToggle = { v122 = !v122 }) { 
                         ChangelogDetailText("• " + "Review Later: Mark strains for subsequent rating".translate(lang))
                         ChangelogDetailText("• " + "Rating Reminders: Configurable alerts (1-14 days)".translate(lang))
                         ChangelogDetailText("• " + "New Filter: Quickly find entries needing review".translate(lang)) 
-                    }
-                    CollapsibleSubSection(title = "Version 1.3.0", isExpanded = v130, onToggle = { v130 = !v130 }) { 
+                        ChangelogDetailText("• " + "Compact Settings: Streamlined notification selection".translate(lang))
                         ChangelogDetailText("• " + "Platform Modernization: Android 16 (API 36)".translate(lang))
                         ChangelogDetailText("• " + "Java 17 Update for performance & security".translate(lang))
-                        ChangelogDetailText("• " + "Met 2026 Google Play Store technical requirements".translate(lang)) 
+                        ChangelogDetailText("• " + "Restored 0.1g logging precision".translate(lang))
+                        ChangelogDetailText("• " + "Fixed German 'Heute/Gestern' headers".translate(lang))
                     }
                     CollapsibleSubSection(title = "Version 1.2.2", isExpanded = v122, onToggle = { v122 = !v122 }) { 
                         ChangelogDetailText("• " + "Restored 0.1g logging precision".translate(lang))
@@ -833,7 +833,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { onToggleSection(if (expandedSection == "danger") null else "danger") }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
-        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.4.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
+        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.2.2", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
     }
 }
 
