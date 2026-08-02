@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -99,6 +100,18 @@ external fun isIos(): Boolean
 external fun isAndroid(): Boolean
 
 @Composable
+fun getAppIconPainter(index: Int): androidx.compose.ui.graphics.painter.Painter {
+    return when (index) {
+        2 -> painterResource(Res.drawable.ic_app_icon_2)
+        3 -> painterResource(Res.drawable.ic_app_icon_3)
+        4 -> painterResource(Res.drawable.ic_app_icon_4)
+        5 -> painterResource(Res.drawable.ic_app_icon_5)
+        6 -> painterResource(Res.drawable.ic_app_icon_6)
+        else -> painterResource(Res.drawable.ic_app_icon_1)
+    }
+}
+
+@Composable
 fun SmokeTrackerScreen(
     viewModel: SmokeViewModel,
     modifier: Modifier = Modifier
@@ -130,7 +143,11 @@ fun SmokeTrackerScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Icon(Icons.Default.Spa, null, modifier = Modifier.size(36.dp).clip(CircleShape), tint = MaterialTheme.colorScheme.primary)
+                        Image(
+                            painter = getAppIconPainter(activeAppIconIndex),
+                            contentDescription = "App Icon",
+                            modifier = Modifier.size(36.dp).clip(CircleShape)
+                        )
                         Text(
                             text = "GreenTracker",
                             style = if (activeTheme == CannabisTheme.PRIDE) {
@@ -190,7 +207,7 @@ fun SmokeTrackerScreen(
                     HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage, reminderInterval, activeAppIconIndex, onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it })
                 }
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
-                AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, viewModel)
+                AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, activeAppIconIndex, viewModel)
                 AppTab.JOURNAL -> JournalScreen(allStrains, activeLanguage, viewModel, activeAppIconIndex, onEdit = { editingStrain = it; showAddStrainDialog = true }, onZoom = { zoomedPhoto = it })
                 AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains, activeAppIconIndex, expandedSection, onToggleSection = { expandedSection = it }, onNavigateToPrivacy = { currentTab = AppTab.PRIVACY })
                 AppTab.PRIVACY -> PrivacyPolicyScreen(activeLanguage, onBack = { currentTab = AppTab.SETTINGS })
@@ -310,19 +327,19 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text(text = "Usage".translate(lang), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium))
+                    Text(text = "Today's Usage".translate(lang), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium))
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         Column {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 val bigGramColor = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else Color(0xFF2E7D32)
-                                Text(text = totalTodayGrams.format(1), style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold, fontSize = 54.sp, color = bigGramColor))
+                                Text(text = totalTodayGrams.format(1, lang), style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold, fontSize = 54.sp, color = bigGramColor))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(text = "g", style = MaterialTheme.typography.titleLarge.copy(color = bigGramColor, fontWeight = FontWeight.SemiBold))
                             }
                             val excess = totalTodayGrams - dailyGoalGrams
                             if (excess > 0.0) {
                                 Text(
-                                    text = "(${"Excess".translate(lang)}: +${excess.format(1)}g)",
+                                    text = "(${"Excess".translate(lang)}: +${excess.format(1, lang)}g)",
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold
@@ -337,8 +354,8 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
                     LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)), color = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "0.0g", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontWeight = FontWeight.Bold))
-                        Text(text = "Max.:".translate(lang) + " ${dailyGoalGrams.format(1)}g", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
+                        Text(text = "0.0g".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontWeight = FontWeight.Bold))
+                        Text(text = "Max.:".translate(lang) + " ${dailyGoalGrams.format(1, lang)}g", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
                     }
                 }
             }
@@ -349,18 +366,21 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Logging".translate(lang), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(text = "Log".translate(lang), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
+                                Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(20.dp).clip(CircleShape))
+                            }
                             Text(text = "Slide to set log amount".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)))
                         }
                         Button(onClick = { viewModel.logSession(quickLogGrams, "", "Quick logged from Widget".translate(lang)) }, shape = RoundedCornerShape(16.dp)) {
                             Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-                            Text(text = "Log ${quickLogGrams.format(1)}g", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(text = "Log ${quickLogGrams.format(1, lang)}g", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                          Text(text = "Session Dosage:".translate(lang), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
-                         Text(text = "${quickLogGrams.format(1)} g", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer))
+                         Text(text = "${quickLogGrams.format(1, lang)} g", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer))
                     }
                     Slider(
                         value = quickLogGrams.toFloat(), 
@@ -462,7 +482,7 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
 }
 
 @Composable
-fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lang: String, viewModel: SmokeViewModel) {
+fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lang: String, activeAppIconIndex: Int, viewModel: SmokeViewModel) {
     val dailyGoalGrams by viewModel.dailyGoalGrams.collectAsState()
     val totalGrams = allSessions.sumOf { it.grams }
     
@@ -485,7 +505,7 @@ fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lan
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
                                 if (stat.totalGrams > 0.0) {
                                     Text(
-                                        text = stat.totalGrams.format(1), 
+                                        text = stat.totalGrams.format(1, lang), 
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -501,25 +521,59 @@ fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lan
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatInsightCard("Total Sessions".translate(lang), "${allSessions.size}", Icons.Default.Assessment, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-                StatInsightCard("Total Grams".translate(lang), "${totalGrams.format(1)}g", Icons.Default.Spa, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
+                StatInsightCard("Total Sessions".translate(lang), "${allSessions.size} " + (if(lang == "de") "mal" else "times"), Icons.Default.Assessment, MaterialTheme.colorScheme.primary, activeAppIconIndex, Modifier.weight(1f))
+                StatInsightCard("Total Grams".translate(lang), "${totalGrams.format(1, lang)}g", Icons.Default.Spa, MaterialTheme.colorScheme.secondary, activeAppIconIndex, Modifier.weight(1f))
             }
         }
         item { 
-            StatInsightCard(title = "Daily Average".translate(lang) + " (${"Logged".translate(lang)}: $daysCount ${"Days".translate(lang)})", value = "${(totalGrams / daysCount.coerceAtLeast(1)).format(1)}g", icon = Icons.Default.FilterVintage, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.fillMaxWidth()) 
+            StatInsightCard(title = "Daily Average".translate(lang), value = "${(totalGrams / daysCount.coerceAtLeast(1)).format(1, lang)}g", icon = Icons.Default.FilterVintage, color = MaterialTheme.colorScheme.tertiary, subCaption = "Logged".translate(lang) + ": $daysCount " + "Days".translate(lang), appIconIndex = activeAppIconIndex, modifier = Modifier.fillMaxWidth()) 
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "USAGE SUMMARY".translate(lang), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
+                            Text(text = "Usage Details".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)))
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(text = "PERIOD RANGE".translate(lang), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
+                            val df = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+                            Text(text = "Last 7 Days".translate(lang), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp).alpha(0.1f))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text(text = "Sessions".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                            Text(text = "${allSessions.size} " + (if(lang == "de") "mal" else "times"), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black))
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(text = "Consumption".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                            Text(text = "${totalGrams.format(1, lang)}g", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier) {
+fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, appIconIndex: Int? = null, modifier: Modifier = Modifier, subCaption: String? = null) {
     Card(modifier = modifier, shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+                if (appIconIndex != null) {
+                    Image(painter = getAppIconPainter(appIconIndex), contentDescription = null, modifier = Modifier.size(20.dp).clip(CircleShape))
+                } else {
+                    Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+                }
             }
             Text(title, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
             Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (subCaption != null) Text(subCaption, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)))
         }
     }
 }
@@ -579,8 +633,8 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                                 if (strain.photoUri.isNotEmpty()) {
                                     val bitmap = remember(strain.photoUri) { try { val base64Data = if (strain.photoUri.contains(",")) strain.photoUri.split(",")[1] else strain.photoUri; com.example.util.Base64.decode(base64Data).decodeToImageBitmap() } catch (e: Exception) { null } }
                                     if (bitmap != null) Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                    else Icon(Icons.Default.Photo, null, tint = MaterialTheme.colorScheme.primary)
-                                } else Icon(Icons.Default.Spa, null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                                    else Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
+                                } else Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
                             }
                             // Rating Badge overlay
                             val (rIcon, rColor) = when {
@@ -676,9 +730,9 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                         if (isUserOnIos) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("How to install GreenTracker on your device:".translate(lang), fontWeight = FontWeight.Bold)
-                                Text("1. Tap the Share button (square with arrow up)".translate(lang))
-                                Text("2. Scroll down and select 'Add to Home Screen'".translate(lang))
-                                Text("This enables features like Push Notifications on iOS.".translate(lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                Text("1. Tap the Share button (square with arrow up)")
+                                Text("2. Scroll down and select 'Add to Home Screen'")
+                                Text("This enables features like Push Notifications on iOS.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                         } else if (isUserOnAndroid) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -714,6 +768,34 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Theme Settings".translate(lang), expandedSection == "theme", onToggle = { onToggleSection(if (expandedSection == "theme") null else "theme") }) {
             CannabisTheme.entries.forEach { theme -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { viewModel.setTheme(theme) }.padding(vertical = 4.dp)) { RadioButton(selected = activeTheme == theme, onClick = { viewModel.setTheme(theme) }); Text(theme.displayName.translate(lang)) } }
         } }
+
+        item {
+            CollapsibleSettingsCard("App Icon".translate(lang), expandedSection == "icon", onToggle = { onToggleSection(if (expandedSection == "icon") null else "icon") }) {
+                Column {
+                    Text(text = "Choose your preferred App Icon. Changes apply automatically across the web dashboard.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val icons = listOf(1, 2, 3, 4, 5, 6)
+                    icons.chunked(3).forEach { row ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { index ->
+                                val isSelected = activeAppIconIndex == index
+                                Card(
+                                    modifier = Modifier.weight(1f).clickable { viewModel.setAppIconIndex(index) },
+                                    border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
+                                    colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Image(painter = getAppIconPainter(index), contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape))
+                                        RadioButton(selected = isSelected, onClick = { viewModel.setAppIconIndex(index) })
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
         
         item { CollapsibleSettingsCard("Day Rhythm".translate(lang), expandedSection == "rhythm", onToggle = { onToggleSection(if (expandedSection == "rhythm") null else "rhythm") }) {
             Text("Start of Day".translate(lang) + ": ${dayRhythm.toString().padStart(2, '0')}:00", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = dayRhythm.toFloat(), onValueChange = { viewModel.setDayRhythm(it.toInt()) }, valueRange = 0f..23f, steps = 23)
@@ -780,9 +862,15 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("App Maintenance".translate(lang), expandedSection == "maint", onToggle = { onToggleSection(if (expandedSection == "maint") null else "maint") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Check for updates or refresh the app cache.".translate(lang), style = MaterialTheme.typography.bodySmall); Button(onClick = { forceAppUpdate() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh".translate(lang)) } }
         } }
-        item { var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
+        item { var v132 by remember { mutableStateOf(false) }; var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
             CollapsibleSettingsCard(title = "Changelog".translate(lang), isExpanded = expandedSection == "changelog", onToggle = { onToggleSection(if (expandedSection == "changelog") null else "changelog") }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CollapsibleSubSection(title = "Version 1.3.2", isExpanded = v132, onToggle = { v132 = !v132 }) {
+                        ChangelogDetailText("• " + "Full localization: 100% German UI coverage and bug fixes".translate(lang))
+                        ChangelogDetailText("• " + "iPhone Notification Fix: Improved reliability for iOS".translate(lang))
+                        ChangelogDetailText("• " + "Journal UI: New 'Review Later' button logic and compact layout".translate(lang))
+                        ChangelogDetailText("• " + "Improved Backup: Trash items and review states are now included".translate(lang))
+                    }
                     CollapsibleSubSection(title = "Version 1.2.2", isExpanded = v122, onToggle = { v122 = !v122 }) { 
                         ChangelogDetailText("• " + "Review Later: Mark strains for subsequent rating".translate(lang))
                         ChangelogDetailText("• " + "Rating Reminders: Configurable alerts (1-14 days)".translate(lang))
@@ -792,12 +880,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                         ChangelogDetailText("• " + "Java 17 Update for performance & security".translate(lang))
                         ChangelogDetailText("• " + "Restored 0.1g logging precision".translate(lang))
                         ChangelogDetailText("• " + "Fixed German 'Heute/Gestern' headers".translate(lang))
-                    }
-                    CollapsibleSubSection(title = "Version 1.2.2", isExpanded = v122, onToggle = { v122 = !v122 }) { 
-                        ChangelogDetailText("• " + "Restored 0.1g logging precision".translate(lang))
-                        ChangelogDetailText("• " + "Fixed German 'Heute/Gestern' headers".translate(lang))
-                        ChangelogDetailText("• " + "Auto-scroll to top in Journal".translate(lang))
-                        ChangelogDetailText("• " + "Fixed deletion state bug in lists".translate(lang)) 
+                        ChangelogDetailText("• " + "Privacy Transparency: Refined Privacy Policy with clear sections and direct contact details".translate(lang))
                     }
                     CollapsibleSubSection(title = "Version 1.2.0", isExpanded = v120, onToggle = { v120 = !v120 }) { 
                         ChangelogDetailText("• " + "Smart History: Auto-collapse past days".translate(lang))
@@ -833,7 +916,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { onToggleSection(if (expandedSection == "danger") null else "danger") }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
-        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.2.2", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) } } }
+        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.2", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)); Spacer(Modifier.height(8.dp)); Text("Human Vision & AI Power", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) } } }
     }
 }
 
@@ -875,6 +958,8 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
     if (showEditDialog) { val maxD by viewModel.widgetMaxDosage.collectAsState(); EditSessionDialog(session, lang, maxD, onDismiss = { showEditDialog = false }, onSave = { onEdit?.invoke(it); showEditDialog = false }) }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(if (session.strain.isNotEmpty()) session.strain else "Smoke Session".translate(lang), fontWeight = FontWeight.Bold)
@@ -883,7 +968,7 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
                 }
                 if (session.notes.isNotEmpty()) Text(session.notes, style = MaterialTheme.typography.bodySmall)
             }
-            Text("+${session.grams.format(1)}g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+            Text("+${session.grams.format(1, lang)}g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
             if (onEdit != null) IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
             IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, null, tint = Color.Red, modifier = Modifier.size(20.dp)) }
         }
@@ -893,38 +978,40 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
 @Composable
 fun EditSessionDialog(session: SmokeSession, lang: String, maxDosage: Double, onDismiss: () -> Unit, onSave: (SmokeSession) -> Unit) {
     var grams by remember { mutableStateOf(session.grams) }; var strain by remember { mutableStateOf(session.strain) }; var notes by remember { mutableStateOf(session.notes) }; var timestamp by remember { mutableStateOf(session.timestamp) }
-    AlertDialog(onDismissRequest = {}, title = { Text("Edit Session".translate(lang), fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { Text("Amount:".translate(lang) + " ${grams.format(1)}g", fontWeight = FontWeight.Bold); Slider(value = grams.toFloat(), onValueChange = { grams = it.toDouble() }, valueRange = 0.0f..maxDosage.toFloat()); TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain / Variety".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); TextField(value = notes, onValueChange = { notes = it }, label = { Text("Session Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); Text("Timestamp".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); val dt = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault()); Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Column(modifier = Modifier.weight(1f)) { Text("Hour".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.hour.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, it.toInt(), dt.minute, 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..23f, steps = 23) }; Column(modifier = Modifier.weight(1f)) { Text("Minute".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.minute.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, dt.hour, it.toInt(), 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..59f, steps = 59) } }; Text("${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) } }, confirmButton = { Button(onClick = { onSave(session.copy(grams = grams, strain = strain, notes = notes, timestamp = timestamp)) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
+    AlertDialog(onDismissRequest = {}, title = { Text("Edit Session".translate(lang), fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { Text("Amount:".translate(lang) + " ${grams.format(1, lang)}g", fontWeight = FontWeight.Bold); Slider(value = grams.toFloat(), onValueChange = { grams = it.toDouble() }, valueRange = 0.0f..maxDosage.toFloat()); TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain / Variety".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); TextField(value = notes, onValueChange = { notes = it }, label = { Text("Session Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); Text("Timestamp".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); val dt = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault()); Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Column(modifier = Modifier.weight(1f)) { Text("Hour".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.hour.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, it.toInt(), dt.minute, 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..23f, steps = 23) }; Column(modifier = Modifier.weight(1f)) { Text("Minute".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.minute.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, dt.hour, it.toInt(), 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..59f, steps = 59) } }; Text("${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) } }, confirmButton = { Button(onClick = { onSave(session.copy(grams = grams, strain = strain, notes = notes, timestamp = timestamp)) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
 }
 
 @Composable
 fun AddManualSessionDialog(initialGrams: Double, lang: String, maxDosage: Double, theme: CannabisTheme, onDismiss: () -> Unit, onSave: (Double, String, String, Long) -> Unit) {
     var grams by remember { mutableStateOf(initialGrams) }; var strain by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }; var timestamp by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
-    AlertDialog(onDismissRequest = {}, title = { Text("Log Smoke Session 🌿".translate(lang), fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { Text("Amount:".translate(lang) + " ${grams.format(1)}g", fontWeight = FontWeight.Bold); Slider(value = grams.toFloat(), onValueChange = { grams = it.toDouble() }, valueRange = 0.0f..maxDosage.toFloat()); Text("Time:".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); val dt = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault()); Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Column(modifier = Modifier.weight(1f)) { Text("Hour".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.hour.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, it.toInt(), dt.minute, 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..23f, steps = 23) }; Column(modifier = Modifier.weight(1f)) { Text("Minute".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.minute.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, dt.hour, it.toInt(), 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..59f, steps = 59) } }; Text("${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center); TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain / Variety".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); TextField(value = notes, onValueChange = { notes = it }, label = { Text("Session Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth() ) } }, confirmButton = { Button(onClick = { onSave(grams, strain, notes, timestamp) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
+    AlertDialog(onDismissRequest = {}, title = { Text("Log Smoke Session 🌿".translate(lang), fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { Text("Amount:".translate(lang) + " ${grams.format(1, lang)}g", fontWeight = FontWeight.Bold); Slider(value = grams.toFloat(), onValueChange = { grams = it.toDouble() }, valueRange = 0.0f..maxDosage.toFloat()); Text("Time:".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); val dt = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault()); Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Column(modifier = Modifier.weight(1f)) { Text("Hour".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.hour.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, it.toInt(), dt.minute, 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..23f, steps = 23) }; Column(modifier = Modifier.weight(1f)) { Text("Minute".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.minute.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, dt.hour, it.toInt(), 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..59f, steps = 59) } }; Text("${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center); TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain / Variety".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); TextField(value = notes, onValueChange = { notes = it }, label = { Text("Session Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth() ) } }, confirmButton = { Button(onClick = { onSave(grams, strain, notes, timestamp) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
 }
 
 @Composable
 fun AddEditStrainDialog(initial: StrainEntry?, lang: String, viewModel: SmokeViewModel, onDismiss: () -> Unit, onSave: (String, String, String, Double, Double, String, String, String, Boolean) -> Unit) {
     var name by remember { mutableStateOf(initial?.strainName ?: "") }; var prod by remember { mutableStateOf(initial?.producerCultivar ?: "") }; var cat by remember { mutableStateOf(initial?.category ?: "Hybrid") }; var photo by remember { mutableStateOf(initial?.photoUri ?: "") }; var rat by remember { mutableStateOf(initial?.rating ?: "THUMBS_UP") }; var thcT by remember { mutableStateOf(if (initial != null && initial.thcPercentage > 0) initial.thcPercentage.toInt().toString() else "") }; var cbdT by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toInt().toString() else "") }; var nts by remember { mutableStateOf(initial?.notes ?: "") }
     var needsReview by remember { mutableStateOf(initial?.needsReview ?: false) }
-    AlertDialog(onDismissRequest = {}, title = { Text(if (initial == null) "Add Strain".translate(lang) else "Edit Strain".translate(lang), fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { 
-        if (photo.isNotEmpty()) { Box(modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { photo = "" }, contentAlignment = Alignment.Center) { val bitmap = remember(photo) { try { val base64Data = if (photo.contains(",")) photo.split(",")[1] else photo; com.example.util.Base64.decode(base64Data).decodeToImageBitmap() } catch (e: Exception) { null } }; if (bitmap != null) { Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()); Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)) { Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp)) } } else { Text("Error loading", fontSize = 10.sp) } } } else { Button(onClick = { triggerImagePicker { photo = it } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.AddAPhoto, null); Spacer(Modifier.width(8.dp)); Text("Add Photo".translate(lang)) } }; 
-        TextField(value = name, onValueChange = { name = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth()); 
-        TextField(value = prod, onValueChange = { prod = it }, label = { Text("Producer".translate(lang)) }, modifier = Modifier.fillMaxWidth()); 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextField(value = thcT, onValueChange = { thcT = it }, label = { Text("THC %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)); TextField(value = cbdT, onValueChange = { cbdT = it }, label = { Text("CBD %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) }; 
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf("Indica", "Sativa", "Hybrid").forEach { c -> FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text(c) }, modifier = Modifier.weight(1f)) } }; 
+    AlertDialog(onDismissRequest = {}, title = { Text(if (initial == null) "Add Strain".translate(lang) else "Edit Strain".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { 
+        if (photo.isNotEmpty()) { Box(modifier = Modifier.size(100.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { photo = "" }, contentAlignment = Alignment.Center) { val bitmap = remember(photo) { try { val base64Data = if (photo.contains(",")) photo.split(",")[1] else photo; com.example.util.Base64.decode(base64Data).decodeToImageBitmap() } catch (e: Exception) { null } }; if (bitmap != null) { Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()); Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)) { Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp)) } } else { Text("Error loading", fontSize = 10.sp) } } } else { Button(onClick = { triggerImagePicker { photo = it } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.AddAPhoto, null); Spacer(Modifier.width(8.dp)); Text("Add Photo".translate(lang)) } }; 
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth(), singleLine = true); 
+        OutlinedTextField(value = prod, onValueChange = { prod = it }, label = { Text("Producer".translate(lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true); 
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
+            OutlinedTextField(value = thcT, onValueChange = { if (it.all { c -> c.isDigit() }) thcT = it }, label = { Text("THC %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true); 
+            OutlinedTextField(value = cbdT, onValueChange = { if (it.all { c -> c.isDigit() }) cbdT = it }, label = { Text("CBD %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true) 
+        }; 
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
+            listOf("Indica", "Sativa", "Hybrid").forEach { c -> FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text(c) }, modifier = Modifier.weight(1f)) } 
+        }; 
         Text("Rating".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) { SelectableRatingItem(selected = rat == "THUMBS_UP", icon = Icons.Default.ThumbUp, label = "Recommended".translate(lang), color = Color(0xFF2E7D32), onClick = { rat = "THUMBS_UP" }, modifier = Modifier.weight(1f)); SelectableRatingItem(selected = rat == "NEUTRAL", icon = Icons.Default.SentimentNeutral, label = "Neutral".translate(lang), color = Color.Gray, onClick = { rat = "NEUTRAL" }, modifier = Modifier.weight(1f)); SelectableRatingItem(selected = rat == "THUMBS_DOWN", icon = Icons.Default.ThumbDown, label = "Avoid".translate(lang), color = Color.Red, onClick = { rat = "THUMBS_DOWN" }, modifier = Modifier.weight(1f)) }; 
-        TextField(value = nts, onValueChange = { nts = it }, label = { Text("Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { needsReview = !needsReview }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = needsReview, onCheckedChange = { needsReview = it })
-            Spacer(modifier = Modifier.width(8.dp))
-            Column {
-                Text("Review Later".translate(lang), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                Text("Remind me to rate this strain in a few days".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-            }
-        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
+            SelectableRatingItem(selected = !needsReview && rat == "THUMBS_UP", icon = Icons.Default.ThumbUp, label = "Recommended".translate(lang), color = Color(0xFF2E7D32), onClick = { rat = "THUMBS_UP"; needsReview = false }, modifier = Modifier.weight(1f)); 
+            SelectableRatingItem(selected = !needsReview && rat == "NEUTRAL", icon = Icons.Default.SentimentNeutral, label = "Neutral".translate(lang), color = Color.Gray, onClick = { rat = "NEUTRAL"; needsReview = false }, modifier = Modifier.weight(1f)); 
+        }; 
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
+            SelectableRatingItem(selected = !needsReview && rat == "THUMBS_DOWN", icon = Icons.Default.ThumbDown, label = "Avoid".translate(lang), color = Color.Red, onClick = { rat = "THUMBS_DOWN"; needsReview = false }, modifier = Modifier.weight(1f)); 
+            SelectableRatingItem(selected = needsReview, icon = Icons.Default.Timer, label = "Review Later".translate(lang), color = MaterialTheme.colorScheme.tertiary, onClick = { needsReview = true }, modifier = Modifier.weight(1f)) 
+        }; 
+        OutlinedTextField(value = nts, onValueChange = { nts = it }, label = { Text("Notes (Optional)...".translate(lang)) }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4)
     } }, confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onSave(name, prod, cat, (thcT.toDoubleOrNull() ?: 0.0), (cbdT.toDoubleOrNull() ?: 0.0), rat, nts, photo, needsReview) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
 }
 

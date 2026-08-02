@@ -271,7 +271,8 @@ class SmokeViewModel(
                 "widget_max_dosage" to _widgetMaxDosage.value.toString(),
                 "reminder_interval_hours" to _reminderInterval.value.toString(),
                 "quick_track_grams" to _quickLogGrams.value.toString(),
-                "active_app_icon_index" to _activeAppIconIndex.value.toString()
+                "active_app_icon_index" to _activeAppIconIndex.value.toString(),
+                "review_reminder_days" to _reviewReminderDays.value.toString()
             )
         )
         return json.encodeToString(data)
@@ -289,6 +290,7 @@ class SmokeViewModel(
             data.settings["reminder_interval_hours"]?.toIntOrNull()?.let { setReminderInterval(it) }
             data.settings["quick_track_grams"]?.toDoubleOrNull()?.let { setQuickLogGrams(it) }
             data.settings["active_app_icon_index"]?.toIntOrNull()?.let { setAppIconIndex(it) }
+            data.settings["review_reminder_days"]?.toIntOrNull()?.let { setReviewReminderDays(it) }
             true
         } catch (e: Exception) {
             false
@@ -304,18 +306,22 @@ fun Double.roundToDecimals(decimals: Int): Double {
     return ((this * multiplier).toInt().toDouble() / multiplier)
 }
 
-fun Double.format(decimals: Int): String {
+fun Double.format(decimals: Int, lang: String = "en"): String {
     val roundedVal = this.roundToDecimals(decimals)
-    if (decimals == 0) return roundedVal.toInt().toString()
-    val rounded = roundedVal.toString()
-    return if (rounded.contains(".")) {
-        val parts = rounded.split(".")
-        if (parts[1].length < decimals) {
-            rounded + "0".repeat(decimals - parts[1].length)
-        } else rounded
+    val formatted = if (decimals == 0) {
+        roundedVal.toInt().toString()
     } else {
-        rounded + "." + "0".repeat(decimals)
+        val rounded = roundedVal.toString()
+        if (rounded.contains(".")) {
+            val parts = rounded.split(".")
+            if (parts[1].length < decimals) {
+                rounded + "0".repeat(decimals - parts[1].length)
+            } else rounded
+        } else {
+            rounded + "." + "0".repeat(decimals)
+        }
     }
+    return if (lang == "de") formatted.replace(".", ",") else formatted
 }
 
 fun String.translate(lang: String): String {
@@ -502,8 +508,19 @@ fun String.translate(lang: String): String {
         "Review Later" -> "Später bewerten"
         "Remind me to rate this strain in a few days" -> "Erinnere mich in ein paar Tagen an die Bewertung"
         "Needs Review" -> "Offene Bewertungen"
-        "Review Reminder Period" -> "Zeitraum für Bewertung"
-        "Smoke Reminder Interval" -> "Erinnerungs-Intervall"
+        "Review Reminder Period" -> "Dauer bis zur Bewertung"
+        "Smoke Reminder Interval" -> "Abstand der Erinnerungen"
+        "Review Later: Mark strains for subsequent rating" -> "Später bewerten: Markiere Sorten für spätere Bewertung"
+        "Rating Reminders: Configurable alerts (1-14 days)" -> "Bewertungs-Erinnerung: Einstellbarer Zeitraum (1-14 Tage)"
+        "New Filter: Quickly find entries needing review" -> "Neuer Filter: Finde Einträge, die noch bewertet werden müssen"
+        "Compact Settings: Streamlined notification selection" -> "Kompakte Einstellungen: Optimierte Benachrichtigungsauswahl"
+        "Privacy Transparency: Refined Privacy Policy with clear sections and direct contact details" -> "Datenschutz-Update: Klare Struktur & direkter Kontakt"
+        "Language Settings" -> "Spracheinstellungen"
+        "Theme Settings" -> "Design & Farben"
+        "Widget Dosage Range Setup" -> "Widget-Dosierung"
+        "Push Notification Reminders" -> "Erinnerungen & Push"
+        "Backup & Restore" -> "Sicherung & Wiederherstellung"
+        "Clear All Tracking Logs" -> "Alle Daten unwiderruflich löschen"
         "Off" -> "Aus"
         "1h" -> "1 Std."
         "2h" -> "2 Std."
