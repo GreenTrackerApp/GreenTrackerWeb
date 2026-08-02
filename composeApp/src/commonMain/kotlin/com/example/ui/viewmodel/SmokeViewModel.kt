@@ -526,6 +526,8 @@ fun String.translate(lang: String): String {
         "2h" -> "2 Std."
         "4h" -> "4 Std."
         "8h" -> "8 Std."
+        "Restored 0.1g logging precision" -> "0,1g Logging-Präzision wiederhergestellt"
+        "Fixed German 'Heute/Gestern' headers" -> "Heute/Gestern Header korrigiert"
         "Time to review! 🌿" -> "Zeit für eine Bewertung! 🌿"
         "How do you like '%s'? Rate it now." -> "Wie gefällt dir '%s'? Bewerte die Sorte jetzt."
         "Max.:" -> "Max.:"
