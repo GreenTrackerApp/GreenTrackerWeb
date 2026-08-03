@@ -61,10 +61,6 @@ class SmokeViewModel(
     private val _activeAppIconIndex = MutableStateFlow(settings.getInt("active_app_icon_index", 1))
     val activeAppIconIndex: StateFlow<Int> = _activeAppIconIndex.asStateFlow()
 
-    // Reminder Interval
-    private val _reminderInterval = MutableStateFlow(settings.getInt("reminder_interval_hours", 0))
-    val reminderInterval: StateFlow<Int> = _reminderInterval.asStateFlow()
-
     // Streams
     val allSessions: StateFlow<List<SmokeSession>> = repository.allSessions
         .map { list -> list.filter { !it.isDeleted } }
@@ -84,23 +80,7 @@ class SmokeViewModel(
 
     init {
         cleanExpiredTrash()
-        startReminderTimer()
         checkPendingReviews()
-    }
-
-    private fun startReminderTimer() {
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(60 * 60 * 1000L) // Check every hour
-                val interval = _reminderInterval.value
-                if (interval > 0) {
-                    NotificationHelper.notify(
-                        "GreenTracker".translate(_language.value), 
-                        "Time to log your session!".translate(_language.value)
-                    )
-                }
-            }
-        }
     }
 
     private fun checkPendingReviews() {
@@ -228,10 +208,6 @@ class SmokeViewModel(
         _widgetMaxDosage.value = grams
         settings.putFloat("widget_max_dosage", grams.toFloat())
     }
-    fun setReminderInterval(hours: Int) {
-        _reminderInterval.value = hours
-        settings.putInt("reminder_interval_hours", hours)
-    }
     fun setQuickLogGrams(grams: Double) {
         _quickLogGrams.value = grams
         settings.putFloat("quick_track_grams", grams.toFloat())
@@ -269,7 +245,6 @@ class SmokeViewModel(
                 "day_rhythm_hours" to _dayRhythmHours.value.toString(),
                 "daily_goal_grams" to _dailyGoalGrams.value.toString(),
                 "widget_max_dosage" to _widgetMaxDosage.value.toString(),
-                "reminder_interval_hours" to _reminderInterval.value.toString(),
                 "quick_track_grams" to _quickLogGrams.value.toString(),
                 "active_app_icon_index" to _activeAppIconIndex.value.toString(),
                 "review_reminder_days" to _reviewReminderDays.value.toString()
@@ -287,7 +262,6 @@ class SmokeViewModel(
             data.settings["day_rhythm_hours"]?.toIntOrNull()?.let { setDayRhythm(it) }
             data.settings["daily_goal_grams"]?.toDoubleOrNull()?.let { setDailyGoal(it) }
             data.settings["widget_max_dosage"]?.toDoubleOrNull()?.let { setWidgetMaxDosage(it) }
-            data.settings["reminder_interval_hours"]?.toIntOrNull()?.let { setReminderInterval(it) }
             data.settings["quick_track_grams"]?.toDoubleOrNull()?.let { setQuickLogGrams(it) }
             data.settings["active_app_icon_index"]?.toIntOrNull()?.let { setAppIconIndex(it) }
             data.settings["review_reminder_days"]?.toIntOrNull()?.let { setReviewReminderDays(it) }

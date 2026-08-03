@@ -203,8 +203,7 @@ fun SmokeTrackerScreen(
         ) {
             when (currentTab) {
                 AppTab.HOME -> {
-                    val reminderInterval by viewModel.reminderInterval.collectAsState()
-                    HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage, reminderInterval, activeAppIconIndex, onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it })
+                    HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage, activeAppIconIndex, onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it })
                 }
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
                 AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, activeAppIconIndex, viewModel)
@@ -276,7 +275,7 @@ fun BottomNavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: 
 }
 
 @Composable
-fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsToday: List<SmokeSession>, dailyGoalGrams: Double, lang: String, reminderInterval: Int, activeAppIconIndex: Int, onNavigateToSettings: (String) -> Unit) {
+fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsToday: List<SmokeSession>, dailyGoalGrams: Double, lang: String, activeAppIconIndex: Int, onNavigateToSettings: (String) -> Unit) {
     val totalTodayGrams = sessionsToday.sumOf { it.grams }
     val progress = if (dailyGoalGrams > 0.0) (totalTodayGrams / dailyGoalGrams).toFloat().coerceIn(0f, 1f) else 0f
     val quickLogGrams by viewModel.quickLogGrams.collectAsState()
@@ -286,44 +285,6 @@ fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsTo
     var lastReminderTapTime by remember { mutableLongStateOf(0L) }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-        item {
-            Surface(
-                onClick = {
-                    val now = Clock.System.now().toEpochMilliseconds()
-                    if (now - lastReminderTapTime < 800) {
-                        reminderTapCount++
-                    } else {
-                        reminderTapCount = 1
-                    }
-                    lastReminderTapTime = now
-                    if (reminderTapCount >= 3) {
-                        onNavigateToSettings("notif")
-                        reminderTapCount = 0
-                    }
-                },
-                color = Color.Transparent,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.size(8.dp).clip(CircleShape).background(if (reminderInterval > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                    )
-                    Text(
-                        text = if (reminderInterval > 0) {
-                            "Reminder active: Log sessions every %dh for accurate statistics!".translate(lang).replace("%d", reminderInterval.toString())
-                        } else {
-                            "Reminders are currently off. Tap Settings to enable push notifications.".translate(lang)
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-                }
-            }
-        }
-
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
                 Column(modifier = Modifier.padding(24.dp)) {
@@ -706,7 +667,6 @@ fun JournalBadge(text: String, color: Color) {
 @Composable
 fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyGoalGrams: Double, lang: String, trashedSessions: List<SmokeSession>, trashedStrains: List<StrainEntry>, activeAppIconIndex: Int, expandedSection: String?, onToggleSection: (String?) -> Unit, onNavigateToPrivacy: () -> Unit) {
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
-    val reminderInterval by viewModel.reminderInterval.collectAsState()
     var isSessionsTrashExpanded by remember { mutableStateOf(false) }
     var isStrainsTrashExpanded by remember { mutableStateOf(false) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
@@ -802,30 +762,9 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         } }
         item { CollapsibleSettingsCard("Notifications".translate(lang), expandedSection == "notif", onToggle = { onToggleSection(if (expandedSection == "notif") null else "notif") }) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { 
-                Text("Smoke Reminder Interval".translate(lang), fontWeight = FontWeight.Bold)
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(0 to "Off", 1 to "1h", 2 to "2h", 4 to "4h", 8 to "8h").forEach { (h, label) ->
-                        FilterChip(
-                            selected = reminderInterval == h,
-                            onClick = { 
-                                viewModel.setReminderInterval(h)
-                                if (h > 0) {
-                                    com.example.util.NotificationHelper.requestPermission()
-                                }
-                            },
-                            label = { Text(label.translate(lang), fontWeight = FontWeight.Bold) }
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(4.dp))
                 val quickG by viewModel.quickLogGrams.collectAsState()
                 Text("Quick Log Amount".translate(lang), fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) { Slider(value = quickG.toFloat(), onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, valueRange = 0.0f..5.0f, modifier = Modifier.weight(1f)); Text(quickG.format(1) + "g", modifier = Modifier.width(48.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)) }; 
+                Row(verticalAlignment = Alignment.CenterVertically) { Slider(value = quickG.toFloat(), onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, valueRange = 0.0f..5.0f, modifier = Modifier.weight(1f)); Text(quickG.format(1, lang) + "g", modifier = Modifier.width(48.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)) }; 
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 val reviewDays by viewModel.reviewReminderDays.collectAsState()
