@@ -151,7 +151,7 @@ class SmokeViewModel(
 
     fun logSession(grams: Double, strain: String, notes: String, timestamp: Long = Clock.System.now().toEpochMilliseconds()) {
         repository.insertSession(SmokeSession(timestamp = timestamp, grams = grams, strain = strain, notes = notes))
-        NotificationHelper.notify("GreenTracker", "Smoke logged ;) +${grams.format(1)}g")
+        NotificationHelper.notify("GreenTracker", "Smoke logged +${grams.format(1, _language.value)}g")
     }
 
     fun updateSession(session: SmokeSession) {
