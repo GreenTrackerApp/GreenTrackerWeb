@@ -844,7 +844,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                 Button(
                     onClick = { 
                         com.example.util.NotificationHelper.requestPermission()
-                        com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active! 🌿")
+                        com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active!")
                     }, 
                     modifier = Modifier.fillMaxWidth()
                 ) { 
@@ -1160,7 +1160,7 @@ fun PrivacyTextEnglish() {
     Text("The operator and data controller of this application is:\nDeveloper: GreenTrackerDev\nEmail: GreenTracker420app@gmail.com\n\nIf you have any questions about this Privacy Policy, please contact us directly via email.\n", style = MaterialTheme.typography.bodyMedium)
 
     PrivacyHeader("2. Data Collection & Storage")
-    Text("GreenTracker is designed to be a privacy-first application. All data you log (smoke sessions, strain entries, notes, and photos) is stored strictly locally on your device's internal storage using a local database. We do not transmit your consumption logs, files, or personal information to any external servers.\n", style = MaterialTheme.typography.bodyMedium)
+    Text("GreenTracker is designed to be a privacy-first application. All data you log (smoke sessions, strain entries, notes, and photos) is stored strictly locally on your device's internal storage using a local database. We do not transmit your usage logs, files, or personal information to any external servers.\n", style = MaterialTheme.typography.bodyMedium)
     
     PrivacyHeader("3. Device Permissions")
     Text("To provide its features, the app requires specific device permissions. All data accessed via these permissions stays entirely on your device (phone or browser):\n\n• Camera / Photos: Used only if you choose to take or upload photos of strains for your journal. These photos are processed and stored locally on your device. We have no access to your camera feed or your photo library.\n• Notifications: Used to send optional logging reminders as configured in your settings. No user data is tracked or transmitted for this purpose.\n", style = MaterialTheme.typography.bodyMedium)
@@ -1182,7 +1182,7 @@ fun PrivacyTextGerman() {
     Text("Der Betreiber und Verantwortliche für diese Anwendung ist:\nEntwickler: GreenTrackerDev\nE-Mail: GreenTracker420app@gmail.com\n\nBei Fragen zu dieser Datenschutzerklärung wenden Sie sich bitte direkt per E-Mail an uns.\n", style = MaterialTheme.typography.bodyMedium)
 
     PrivacyHeader("2. Datenerhebung & Speicherung")
-    Text("GreenTracker ist als Privacy-First-Anwendung konzipiert. Alle von Ihnen protokollierten Daten (Sitzungen, Sorteneinträge, Notizen und Fotos) werden ausschließlich lokal auf dem internen Speicher Ihres Geräts gespeichert. Wir übertragen Ihre Konsumprotokolle, Dateien oder persönlichen Informationen nicht an externe Server.\n", style = MaterialTheme.typography.bodyMedium)
+    Text("GreenTracker ist als Privacy-First-Anwendung konzipiert. Alle von Ihnen protokollierten Daten (Sitzungen, Sorteneinträge, Notizen und Fotos) werden ausschließlich lokal auf dem internen Speicher Ihres Geräts gespeichert. Wir übertragen Ihre Verbrauchsprotokolle, Dateien oder persönlichen Informationen nicht an externe Server.\n", style = MaterialTheme.typography.bodyMedium)
     
     PrivacyHeader("3. Geräteberechtigungen")
     Text("Um die Funktionen bereitzustellen, benötigt die App bestimmte Berechtigungen. Alle Daten, auf die über diese Berechtigungen zugegriffen wird, verbleiben vollständig auf Ihrem Gerät (Handy oder Browser):\n\n• Kamera / Fotos: Wird nur verwendet, wenn Sie Fotos von Sorten für Ihr Tagebuch aufnehmen oder hochladen möchten. Diese Fotos werden lokal auf Ihrem Gerät verarbeitet und gespeichert. Wir haben keinen Zugriff auf Ihren Kamera-Feed oder Ihre Foto-Bibliothek.\n• Benachrichtigungen: Wird verwendet, um optionale Erinnerungen zu senden, wie in Ihren Einstellungen konfiguriert. Zu diesem Zweck werden keine Benutzerdaten verfolgt oder übertragen.\n", style = MaterialTheme.typography.bodyMedium)

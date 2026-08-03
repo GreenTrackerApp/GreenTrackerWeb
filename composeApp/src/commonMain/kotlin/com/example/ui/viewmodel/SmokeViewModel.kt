@@ -96,7 +96,7 @@ class SmokeViewModel(
                 if (interval > 0) {
                     NotificationHelper.notify(
                         "GreenTracker".translate(_language.value), 
-                        "Time to log your session! 🌿".translate(_language.value)
+                        "Time to log your session!".translate(_language.value)
                     )
                 }
             }
@@ -108,7 +108,7 @@ class SmokeViewModel(
             val now = Clock.System.now().toEpochMilliseconds()
             allStrains.value.filter { it.needsReview && it.reviewReminderTime != null && it.reviewReminderTime!! <= now }.forEach { strain ->
                 NotificationHelper.notify(
-                    "Time to review! 🌿".translate(_language.value),
+                    "Time to review!".translate(_language.value),
                     "How do you like '${strain.strainName}'? Rate it now.".translate(_language.value)
                 )
             }
@@ -448,7 +448,7 @@ fun String.translate(lang: String): String {
         "Diskret White" -> "Diskret White"
         "Pride" -> "Pride"
         "Classic Herbal" -> "Classic Herbal"
-        "Time to log your session! 🌿" -> "Zeit, deine Sitzung zu protokollieren! 🌿"
+        "Time to log your session!" -> "Zeit, deine Sitzung zu protokollieren!"
         "Quick Log Amount" -> "Schnell-Log Menge"
         "App Maintenance" -> "Wartung"
         "Check for updates or refresh the app cache." -> "Nach Updates suchen oder Cache aktualisieren."
@@ -528,7 +528,7 @@ fun String.translate(lang: String): String {
         "8h" -> "8 Std."
         "Restored 0.1g logging precision" -> "0,1g Logging-Präzision wiederhergestellt"
         "Fixed German 'Heute/Gestern' headers" -> "Heute/Gestern Header korrigiert"
-        "Time to review! 🌿" -> "Zeit für eine Bewertung! 🌿"
+        "Time to review!" -> "Zeit für eine Bewertung!"
         "How do you like '%s'? Rate it now." -> "Wie gefällt dir '%s'? Bewerte die Sorte jetzt."
         "Max.:" -> "Max.:"
         "Eintrag aktualisiert" -> "Eintrag aktualisiert"
