@@ -811,7 +811,12 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     listOf(0 to "Off", 1 to "1h", 2 to "2h", 4 to "4h", 8 to "8h").forEach { (h, label) ->
                         FilterChip(
                             selected = reminderInterval == h,
-                            onClick = { viewModel.setReminderInterval(h) },
+                            onClick = { 
+                                viewModel.setReminderInterval(h)
+                                if (h > 0) {
+                                    com.example.util.NotificationHelper.requestPermission()
+                                }
+                            },
                             label = { Text(label.translate(lang), fontWeight = FontWeight.Bold) }
                         )
                     }
