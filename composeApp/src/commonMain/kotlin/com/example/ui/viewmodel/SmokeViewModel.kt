@@ -247,7 +247,7 @@ class SmokeViewModel(
     }
 
     private fun loadSavedTheme() = CannabisTheme.entries.find { it.id == settings.getString("active_theme_id", "") } ?: CannabisTheme.CLASSIC_HERBAL
-    private fun loadSavedLanguage() = settings.getString("app_language", "en")
+    private fun loadSavedLanguage() = settings.getString("app_language", "de")
     private fun loadSavedDayRhythm() = settings.getInt("day_rhythm_hours", 4)
 
     fun getStartOfLogicalDay(timestamp: Long, rhythmOffset: Int): Long {
@@ -306,7 +306,7 @@ fun Double.roundToDecimals(decimals: Int): Double {
     return ((this * multiplier).toInt().toDouble() / multiplier)
 }
 
-fun Double.format(decimals: Int, lang: String = "en"): String {
+fun Double.format(decimals: Int, lang: String = "de"): String {
     val roundedVal = this.roundToDecimals(decimals)
     val formatted = if (decimals == 0) {
         roundedVal.toInt().toString()
