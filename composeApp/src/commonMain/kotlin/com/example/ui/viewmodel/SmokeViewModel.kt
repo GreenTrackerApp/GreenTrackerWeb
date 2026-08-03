@@ -533,6 +533,7 @@ fun String.translate(lang: String): String {
         "Max.:" -> "Max.:"
         "Eintrag aktualisiert" -> "Eintrag aktualisiert"
         "Sorte hinzugefügt" -> "Sorte hinzugefügt"
+        "Privacy Policy / Datenschutzerklärung" -> "Datenschutzerklärung"
         else -> this
     }
 }

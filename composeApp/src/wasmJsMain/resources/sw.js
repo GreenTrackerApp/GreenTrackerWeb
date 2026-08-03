@@ -1,4 +1,4 @@
-const CACHE_NAME = 'greentracker-pro-v6';
+const CACHE_NAME = 'greentracker-pro-v8';
 const ASSETS = [
   './',
   './index.html',
