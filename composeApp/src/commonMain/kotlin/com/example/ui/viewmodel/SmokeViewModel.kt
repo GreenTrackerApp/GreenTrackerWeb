@@ -500,7 +500,6 @@ fun String.translate(lang: String): String {
         "2h" -> "2 Std."
         "4h" -> "4 Std."
         "8h" -> "8 Std."
-        "Fixed German 'Heute/Gestern' headers" -> "Heute/Gestern Header korrigiert"
         "How do you like '%s'? Rate it now." -> "Wie gefällt dir '%s'? Bewerte die Sorte jetzt."
         "Max.:" -> "Max.:"
         "Eintrag aktualisiert" -> "Eintrag aktualisiert"
