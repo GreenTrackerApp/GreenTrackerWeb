@@ -765,42 +765,30 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Day Rhythm".translate(lang), expandedSection == "rhythm", onToggle = { onToggleSection(if (expandedSection == "rhythm") null else "rhythm") }) {
             Text("Start of Day".translate(lang) + ": ${dayRhythm.toString().padStart(2, '0')}:00", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = dayRhythm.toFloat(), onValueChange = { viewModel.setDayRhythm(it.toInt()) }, valueRange = 0f..23f, steps = 23)
         } }
-        item { CollapsibleSettingsCard("Notifications".translate(lang), expandedSection == "notif", onToggle = { onToggleSection(if (expandedSection == "notif") null else "notif") }) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { 
-                val quickG by viewModel.quickLogGrams.collectAsState()
-                Text("Quick Log Amount".translate(lang), fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) { Slider(value = quickG.toFloat(), onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, valueRange = 0.0f..5.0f, modifier = Modifier.weight(1f)); Text(quickG.format(1, lang) + "g", modifier = Modifier.width(48.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)) }; 
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                val reviewDays by viewModel.reviewReminderDays.collectAsState()
-                Text("Review Reminder Period".translate(lang), fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Slider(
-                        value = reviewDays.toFloat(),
-                        onValueChange = { viewModel.setReviewReminderDays(it.toInt()) },
-                        valueRange = 1f..14f,
-                        steps = 12,
-                        modifier = Modifier.weight(1f)
-                    )
+        item { 
+            CollapsibleSettingsCard(
+                title = "Permissions".translate(lang), 
+                expandedSection == "notif", 
+                onToggle = { onToggleSection(if (expandedSection == "notif") null else "notif") }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { 
                     Text(
-                        text = if (lang == "de") "$reviewDays Tage" else "$reviewDays Days",
-                        modifier = Modifier.width(64.dp),
-                        textAlign = TextAlign.End,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        text = "Enable browser notifications to receive status updates. Note: Notifications are only supported when GreenTracker is used as a WebApp (added to the Home Screen).".translate(lang),
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
-                }
 
-                Button(
-                    onClick = { 
-                        com.example.util.NotificationHelper.requestPermission()
-                        com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active!")
-                    }, 
-                    modifier = Modifier.fillMaxWidth()
-                ) { 
-                    Text("Test Notification") 
-                } 
+                    Button(
+                        onClick = { 
+                            com.example.util.NotificationHelper.requestPermission()
+                            com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active!")
+                        }, 
+                        modifier = Modifier.fillMaxWidth()
+                    ) { 
+                        Text("Test Notification".translate(lang)) 
+                    } 
+                }
             }
-        } }
+        }
         item { CollapsibleSettingsCard("Daily Dosage Limit".translate(lang), expandedSection == "limit", onToggle = { onToggleSection(if (expandedSection == "limit") null else "limit") }) {
             Text(dailyGoalGrams.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = dailyGoalGrams.toFloat(), onValueChange = { viewModel.setDailyGoal(it.toDouble()) }, valueRange = 0.0f..10.0f)
         } }
