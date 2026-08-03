@@ -696,7 +696,12 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                             }
                         } else if (isUserOnAndroid) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                                Text("Download GreenTracker".translate(lang), fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                Text(
+                    text = "Download GreenTracker".translate(lang),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
                                 
                                 val isDe = lang.lowercase().startsWith("de")
                                 val badgeRes = if (isDe) Res.drawable.google_play_badge_de else Res.drawable.google_play_badge_en

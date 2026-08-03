@@ -7,7 +7,7 @@ external interface NotificationOptions : JsAny {
     var icon: String?
 }
 
-@JsFun("(title, body) => { if ('serviceWorker' in navigator) { navigator.serviceWorker.ready.then(reg => { reg.showNotification(title, { body: body, icon: 'icon-192.png' }); }).catch(err => { alert('SW Error: ' + err); }); } else if (typeof Notification !== 'undefined') { try { new Notification(title, { body: body }); } catch(e) { alert('Notification Error: ' + e); } } else { alert('Notifications not supported on this browser/mode'); } }")
+@JsFun("(title, body) => { if (typeof Notification !== 'undefined') { new Notification(title, { body: body }); } }")
 external fun showWebNotification(title: String, body: String)
 
 @JsFun("() => { if (typeof Notification !== 'undefined') { return Notification.permission; } return 'denied'; }")
