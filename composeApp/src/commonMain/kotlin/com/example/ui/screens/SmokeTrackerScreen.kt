@@ -841,7 +841,15 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                     )
                 }
 
-                Button(onClick = { com.example.util.NotificationHelper.requestPermission(); com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active! 🌿") }, modifier = Modifier.fillMaxWidth()) { Text("Test Notification") } 
+                Button(
+                    onClick = { 
+                        com.example.util.NotificationHelper.requestPermission()
+                        com.example.util.NotificationHelper.notify("GreenTracker", "Notifications Active! 🌿")
+                    }, 
+                    modifier = Modifier.fillMaxWidth()
+                ) { 
+                    Text("Test Notification") 
+                } 
             }
         } }
         item { CollapsibleSettingsCard("Daily Dosage Limit".translate(lang), expandedSection == "limit", onToggle = { onToggleSection(if (expandedSection == "limit") null else "limit") }) {
@@ -957,20 +965,57 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
     if (showDeleteConfirm) { AlertDialog(onDismissRequest = {}, title = { Text("Delete Session?".translate(lang)) }, text = { Text("Move this log to the trash?".translate(lang)) }, confirmButton = { Button(onClick = { onDelete(session.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("Delete".translate(lang)) } }, dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel".translate(lang)) } }) }
     if (showEditDialog) { val maxD by viewModel.widgetMaxDosage.collectAsState(); EditSessionDialog(session, lang, maxD, onDismiss = { showEditDialog = false }, onSave = { onEdit?.invoke(it); showEditDialog = false }) }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape))
-            Spacer(modifier = Modifier.width(12.dp))
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(38.dp).clip(CircleShape))
+            Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (session.strain.isNotEmpty()) session.strain else "Smoke Session".translate(lang), fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (session.strain.isNotEmpty()) session.strain else "Smoke Session".translate(lang),
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
                     val dt = Instant.fromEpochMilliseconds(session.timestamp).toLocalDateTime(TimeZone.currentSystemDefault()).time
-                    Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)) { Text("${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 4.dp)) }
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = "${dt.hour.toString().padStart(2, '0')}:${dt.minute.toString().padStart(2, '0')}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
                 }
-                if (session.notes.isNotEmpty()) Text(session.notes, style = MaterialTheme.typography.bodySmall)
+                if (session.notes.isNotEmpty()) {
+                    Text(
+                        text = session.notes,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
             }
-            Text("+${session.grams.format(1, lang)}g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-            if (onEdit != null) IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
-            IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Default.Delete, null, tint = Color.Red, modifier = Modifier.size(20.dp)) }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "+${session.grams.format(1, lang)}g",
+                fontWeight = FontWeight.Black,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            if (onEdit != null) {
+                IconButton(onClick = { showEditDialog = true }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                }
+            }
+            IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Delete, null, tint = Color.Red.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
