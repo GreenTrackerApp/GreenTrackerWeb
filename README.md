@@ -10,6 +10,8 @@ kam diese App raus.
 Ja ich musste viele Stunden eine KI anbrüllen 
 und paar Dinge mal auch per Hand biegen.
 
+Habe viel Zeit in Konzept, Aussehen, Funktionen nachgedacht, Stunden lang prompts und Ideen asugefeilt.
+
 Das ganze Projekt Endstand auf kostenloser Basis von Google 
 Kann unter iPhone mit Safari als „App“ installiert werden 
 Die webapp soll jedem Patienten da draußen und alles anderen 
