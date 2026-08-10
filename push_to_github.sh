@@ -23,7 +23,7 @@ if git diff --cached --quiet; then
 else
     # Commit changes
     echo "Committing changes..."
-    git commit -m "UI Overhaul: Journal redesign, Stats scale fix, and Install App guide (German)"
+    git commit -m "Update v1.3.5: Ported Android features (Limit Confirmation, Debouncing, Interactive Stats, Journal Picker, and memory fix)"
 fi
 
 # Sync with remote

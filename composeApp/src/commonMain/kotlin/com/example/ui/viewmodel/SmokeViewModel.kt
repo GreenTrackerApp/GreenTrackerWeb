@@ -4,6 +4,7 @@ import com.example.data.SmokeRepository
 import com.example.data.SmokeSession
 import com.example.data.StrainEntry
 import com.example.ui.theme.CannabisTheme
+import com.example.util.LogDebouncer
 import com.example.util.NotificationHelper
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.CoroutineScope
@@ -150,6 +151,9 @@ class SmokeViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun logSession(grams: Double, strain: String, notes: String, timestamp: Long = Clock.System.now().toEpochMilliseconds()) {
+        if (timestamp > Clock.System.now().toEpochMilliseconds()) return
+        if (!LogDebouncer.canLog()) return
+        
         repository.insertSession(SmokeSession(timestamp = timestamp, grams = grams, strain = strain, notes = notes))
         NotificationHelper.notify("GreenTracker", "Smoke logged +${grams.format(1, _language.value)}g")
     }
@@ -233,6 +237,10 @@ class SmokeViewModel(
             val startOfDay = LocalDateTime(dateTime.year, dateTime.month, dateTime.dayOfMonth, 0, 0, 0, 0)
             startOfDay.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() + rhythmOffset * 3600 * 1000L
         } catch (e: Exception) { timestamp }
+    }
+
+    suspend fun getFirstSessionTimestamp(): Long? {
+        return allSessions.value.minByOrNull { it.timestamp }?.timestamp
     }
 
     fun createBackupJson(): String {
@@ -493,14 +501,32 @@ fun String.translate(lang: String): String {
         "Journal UI: New 'Review Later' button logic and compact layout" -> "Journal-Design: Neuer 'Später bewerten' Button und kompaktes Layout"
         "Improved Backup: Trash items and review states are now included" -> "Bessere Sicherung: Papierkorb-Elemente und Review-Status integriert"
         "Privacy Transparency: Refined Privacy Policy with clear sections and direct contact details" -> "Datenschutz-Update: Klare Struktur & direkter Kontakt"
-        "Language Settings" -> "Spracheinstellungen"
-        "Theme Settings" -> "Design & Farben"
-        "Widget Dosage Range Setup" -> "Widget-Dosierung"
-        "Push Notification Reminders" -> "Erinnerungen & Push"
-        "Backup & Restore" -> "Sicherung & Wiederherstellung"
+        "Limit Confirmation: Mandatory dialog when reaching daily limits" -> "Limit-Bestätigung: Dialog beim Erreichen des Tageslimits"
+        "Log Debouncing: 2-second cooldown to prevent double-logs" -> "Log-Debouncing: 2-Sekunden Cooldown gegen Doppel-Logs"
+        "Enhanced Statistics: Line Charts for Month/Year views" -> "Bessere Statistik: Liniendiagramme für Monat/Jahr"
+        "Interactive Charts: Press and hold to see exact values" -> "Interaktive Charts: Halten für genaue Werte"
+        "Journal Integration: Select strains directly in the log dialog" -> "Journal-Integration: Sortenauswahl direkt im Dialog"
+        "Future Logging: Blocked logs with future timestamps" -> "Zukunfts-Sperre: Keine Logs in der Zukunft möglich"
+        "Compact UI: Reduced vertical size for better overview" -> "Compact UI: Kompakteres Layout für bessere Übersicht"
         "Clear All Tracking Logs" -> "Alle Daten unwiderruflich löschen"
-        "Off" -> "Aus"
-        "1h" -> "1 Std."
+        "Daily limit exceeded! Log anyway?" -> "Tageslimit überschritten! Trotzdem loggen?"
+        "Daily Limit Reached" -> "Tageslimit erreicht"
+        "Log Anyway" -> "Trotzdem loggen"
+        "Since First Log" -> "Seit erstem Eintrag"
+        "This Week" -> "Diese Woche"
+        "This Month" -> "Diesen Monat"
+        "This Year" -> "Dieses Jahr"
+        "Month Summary" -> "Monats-Übersicht"
+        "Year Summary" -> "Jahres-Übersicht"
+        "Custom Summary" -> "Zeitraum-Übersicht"
+        "N/A" -> "N/V"
+        "Consumption" -> "Verbrauch"
+        "Usage Analytics" -> "Nutzungs-Analyse"
+        "SINCE FIRST LOG" -> "SEIT ERSTEM EINTRAG"
+        "WEEK SUMMARY" -> "WOCHEN-ÜBERSICHT"
+        "MONTH SUMMARY" -> "MONATS-ÜBERSICHT"
+        "YEAR SUMMARY" -> "JAHRES-ÜBERSICHT"
+        "CUSTOM SUMMARY" -> "ZEITRAUM-ÜBERSICHT"
         "2h" -> "2 Std."
         "4h" -> "4 Std."
         "8h" -> "8 Std."

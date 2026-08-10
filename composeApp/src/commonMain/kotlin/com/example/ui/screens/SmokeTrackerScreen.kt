@@ -5,6 +5,7 @@ package com.example.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,9 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,14 +43,16 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.data.SmokeSession
 import com.example.data.StrainEntry
 import com.example.ui.theme.CannabisTheme
-import com.example.ui.viewmodel.DayStat
 import com.example.ui.viewmodel.SmokeViewModel
 import com.example.ui.viewmodel.translate
 import com.example.ui.viewmodel.format
+import com.example.ui.viewmodel.roundToDecimals
+import com.example.ui.viewmodel.DayStat
 import com.example.util.Base64
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
 import kotlinx.browser.document
+import kotlin.math.roundToInt
 import kotlinx.browser.window
 import org.w3c.dom.HTMLAnchorElement
 import org.w3c.files.Blob
@@ -136,6 +141,46 @@ fun SmokeTrackerScreen(
     var zoomedPhoto by remember { mutableStateOf<String?>(null) }
     var expandedSection by remember { mutableStateOf<String?>(null) }
 
+    var logoTapCount by remember { mutableStateOf(0) }
+    var lastLogoTapTime by remember { mutableLongStateOf(0L) }
+    var showRain by remember { mutableStateOf(false) }
+
+    LaunchedEffect(logoTapCount) {
+        if (logoTapCount >= 3) {
+            showRain = true
+        }
+    }
+
+    LaunchedEffect(showRain) {
+        if (showRain) {
+            kotlinx.coroutines.delay(3000L)
+            showRain = false
+            logoTapCount = 0
+        }
+    }
+
+    var showLimitConfirmDialog by remember { mutableStateOf(false) }
+    var pendingLogGrams by remember { mutableDoubleStateOf(0.0) }
+    var pendingLogStrain by remember { mutableStateOf("") }
+    var pendingLogNotes by remember { mutableStateOf("") }
+    var pendingLogTimestamp by remember { mutableLongStateOf(0L) }
+
+    fun requestLog(g: Double, s: String, n: String, t: Long) {
+        val todayStart = viewModel.getStartOfLogicalDay(Clock.System.now().toEpochMilliseconds(), viewModel.dayRhythmHours.value)
+        val todayEnd = todayStart + 24 * 60 * 60 * 1000L - 1L
+        val totalTodayGrams = allSessions.filter { it.timestamp in todayStart..todayEnd }.sumOf { it.grams }
+
+        if ((totalTodayGrams + g) > dailyGoalGrams) {
+            pendingLogGrams = g
+            pendingLogStrain = s
+            pendingLogNotes = n
+            pendingLogTimestamp = t
+            showLimitConfirmDialog = true
+        } else {
+            viewModel.logSession(g, s, n, t)
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = if (activeTheme == CannabisTheme.PRIDE) Color(0xFF0F0F1A) else MaterialTheme.colorScheme.background,
@@ -146,7 +191,11 @@ fun SmokeTrackerScreen(
                         Image(
                             painter = getAppIconPainter(activeAppIconIndex),
                             contentDescription = "App Icon",
-                            modifier = Modifier.size(36.dp).clip(CircleShape)
+                            modifier = Modifier.size(36.dp).clip(CircleShape).clickable {
+                                val now = Clock.System.now().toEpochMilliseconds()
+                                if (now - lastLogoTapTime < 500) logoTapCount++ else logoTapCount = 1
+                                lastLogoTapTime = now
+                            }
                         )
                         Text(
                             text = "GreenTracker",
@@ -203,7 +252,16 @@ fun SmokeTrackerScreen(
         ) {
             when (currentTab) {
                 AppTab.HOME -> {
-                    HomeScreen(viewModel, activeTheme, sessionsToday, dailyGoalGrams, activeLanguage, activeAppIconIndex, onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it })
+                    HomeScreen(
+                        viewModel, 
+                        activeTheme, 
+                        sessionsToday, 
+                        dailyGoalGrams, 
+                        activeLanguage, 
+                        activeAppIconIndex, 
+                        onLogRequest = { g, s, n, t -> requestLog(g, s, n, t) },
+                        onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it }
+                    )
                 }
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
                 AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, activeAppIconIndex, viewModel)
@@ -216,10 +274,41 @@ fun SmokeTrackerScreen(
 
     if (showAddManualDialog) {
         val maxDosage by viewModel.widgetMaxDosage.collectAsState()
-        AddManualSessionDialog(manualAddInitialGrams, activeLanguage, maxDosage, activeTheme, onDismiss = { showAddManualDialog = false }) { g, s, n, t ->
-            viewModel.logSession(g, s, n, t)
+        AddManualSessionDialog(
+            manualAddInitialGrams, 
+            activeLanguage, 
+            maxDosage, 
+            activeTheme, 
+            onDismiss = { showAddManualDialog = false },
+            allStrains = allStrains
+        ) { g, s, n, t ->
+            requestLog(g, s, n, t)
             showAddManualDialog = false
         }
+    }
+
+    if (showLimitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLimitConfirmDialog = false },
+            title = { Text("Daily Limit Reached".translate(activeLanguage), fontWeight = FontWeight.Bold) },
+            text = { Text("Daily limit exceeded! Log anyway?".translate(activeLanguage)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.logSession(pendingLogGrams, pendingLogStrain, pendingLogNotes, pendingLogTimestamp)
+                        showLimitConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Log Anyway".translate(activeLanguage), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLimitConfirmDialog = false }) {
+                    Text("Cancel".translate(activeLanguage))
+                }
+            }
+        )
     }
 
     if (showAddStrainDialog) {
@@ -232,6 +321,26 @@ fun SmokeTrackerScreen(
 
     if (zoomedPhoto != null) {
         ZoomedPhotoDialog(zoomedPhoto!!, onDismiss = { zoomedPhoto = null })
+    }
+
+    if (showRain) {
+        CannabisRainOverlay(activeAppIconIndex)
+    }
+}
+
+@Composable
+fun CannabisRainOverlay(activeAppIconIndex: Int) {
+    val infiniteTransition = rememberInfiniteTransition(label = "cannabisRain")
+    Box(modifier = Modifier.fillMaxSize()) {
+        repeat(15) { index ->
+            val startX = remember { (0..100).random() / 100f }
+            val delay = remember { (0..2000).random() }
+            val yPos by infiniteTransition.animateFloat(initialValue = -0.2f, targetValue = 1.2f, animationSpec = infiniteRepeatable(animation = tween(durationMillis = 3000, easing = LinearEasing, delayMillis = delay), repeatMode = RepeatMode.Restart), label = "yPos$index")
+            val rotation by infiniteTransition.animateFloat(initialValue = 0f, targetValue = 360f, animationSpec = infiniteRepeatable(animation = tween(durationMillis = 2000, easing = LinearEasing), repeatMode = RepeatMode.Restart), label = "rotation$index")
+            Box(modifier = Modifier.fillMaxSize().padding(start = (startX * 400).dp)) {
+                Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(40.dp).offset(y = (yPos * 800).dp).rotate(rotation))
+            }
+        }
     }
 }
 
@@ -275,78 +384,86 @@ fun BottomNavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: 
 }
 
 @Composable
-fun HomeScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, sessionsToday: List<SmokeSession>, dailyGoalGrams: Double, lang: String, activeAppIconIndex: Int, onNavigateToSettings: (String) -> Unit) {
+fun HomeScreen(
+    viewModel: SmokeViewModel, 
+    activeTheme: CannabisTheme, 
+    sessionsToday: List<SmokeSession>, 
+    dailyGoalGrams: Double, 
+    lang: String, 
+    activeAppIconIndex: Int, 
+    onLogRequest: (Double, String, String, Long) -> Unit,
+    onNavigateToSettings: (String) -> Unit
+) {
     val totalTodayGrams = sessionsToday.sumOf { it.grams }
     val progress = if (dailyGoalGrams > 0.0) (totalTodayGrams / dailyGoalGrams).toFloat().coerceIn(0f, 1f) else 0f
     val quickLogGrams by viewModel.quickLogGrams.collectAsState()
     val maxDosage by viewModel.widgetMaxDosage.collectAsState()
 
-    var reminderTapCount by remember { mutableStateOf(0) }
-    var lastReminderTapTime by remember { mutableLongStateOf(0L) }
-
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(text = "Today's Usage".translate(lang), style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium))
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(text = "Today's Consumption".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold))
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         Column {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 val bigGramColor = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else Color(0xFF2E7D32)
-                                Text(text = totalTodayGrams.format(1, lang), style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold, fontSize = 54.sp, color = bigGramColor))
+                                Text(text = totalTodayGrams.format(1, lang), style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, color = bigGramColor))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "g", style = MaterialTheme.typography.titleLarge.copy(color = bigGramColor, fontWeight = FontWeight.SemiBold))
+                                Text(text = "g", style = MaterialTheme.typography.titleMedium.copy(color = bigGramColor, fontWeight = FontWeight.Bold), modifier = Modifier.padding(bottom = 8.dp))
                             }
                             val excess = totalTodayGrams - dailyGoalGrams
                             if (excess > 0.0) {
                                 Text(
                                     text = "(${"Excess".translate(lang)}: +${excess.format(1, lang)}g)",
                                     color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(text = "Sessions".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium))
-                            Text(text = "${sessionsToday.size}", style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface))
+                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(bottom = 4.dp)) {
+                            Text(text = "Sessions".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold))
+                            Text(text = "${sessionsToday.size}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface))
                         }
                     }
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)), color = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)), color = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "0.0g".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontWeight = FontWeight.Bold))
-                        Text(text = "Max.:".translate(lang) + " ${dailyGoalGrams.format(1, lang)}g", style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
+                        Text(text = "0.0g", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold))
+                        Text(text = "Max.:".translate(lang) + " ${dailyGoalGrams.format(1, lang)}g", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
                     }
                 }
             }
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(text = "Log".translate(lang), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
-                                Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(20.dp).clip(CircleShape))
+                                Text(text = "Log".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onPrimaryContainer))
+                                Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(18.dp).clip(CircleShape))
                             }
-                            Text(text = "Slide to set log amount".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)))
+                            Text(text = "Slide to set log amount".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)))
                         }
-                        Button(onClick = { viewModel.logSession(quickLogGrams, "", "Quick logged from Widget".translate(lang)) }, shape = RoundedCornerShape(16.dp)) {
-                            Icon(Icons.Default.Add, null, modifier = Modifier.size(20.dp))
-                            Text(text = "Log ${quickLogGrams.format(1, lang)}g", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Button(
+                            onClick = { onLogRequest(quickLogGrams, "", "Quick logged from Dashboard".translate(lang), Clock.System.now().toEpochMilliseconds()) }, 
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "${quickLogGrams.format(1, lang)}g", fontWeight = FontWeight.Black, fontSize = 14.sp)
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                         Text(text = "Session Dosage:".translate(lang), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer))
-                         Text(text = "${quickLogGrams.format(1, lang)} g", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer))
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Slider(
                         value = quickLogGrams.toFloat(), 
                         onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, 
-                        valueRange = 0.0f..maxDosage.toFloat(), 
+                        valueRange = 0.1f..maxDosage.toFloat().coerceAtLeast(0.1f), 
+                        steps = ((maxDosage - 0.1) / 0.1).toInt().coerceAtLeast(0),
                         colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primary, activeTrackColor = MaterialTheme.colorScheme.primary)
                     )
                 }
@@ -443,79 +560,274 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
 }
 
 @Composable
-fun StatsScreen(weeklyStats: List<DayStat>, allSessions: List<SmokeSession>, lang: String, activeAppIconIndex: Int, viewModel: SmokeViewModel) {
+fun StatsScreen(
+    weeklyStats: List<DayStat>,
+    allSessions: List<SmokeSession>,
+    lang: String,
+    activeAppIconIndex: Int,
+    viewModel: SmokeViewModel
+) {
+    var selectedFilter by remember { mutableStateOf(HistoryFilter.WEEK) }
+    var customStartDate by remember { mutableStateOf<Long?>(null) }
+    var customEndDate by remember { mutableStateOf<Long?>(null) }
+    val scope = rememberCoroutineScope()
+    val dayRhythm by viewModel.dayRhythmHours.collectAsState()
     val dailyGoalGrams by viewModel.dailyGoalGrams.collectAsState()
-    val totalGrams = allSessions.sumOf { it.grams }
-    
-    // Enhanced scale logic: 60% extra space at the top for labels
-    val rawMax = (weeklyStats.map { it.totalGrams } + dailyGoalGrams).maxOfOrNull { it } ?: 1.0
-    val maxGrams = rawMax * 1.6
 
-    val daysCount = if (allSessions.isEmpty()) 1 else allSessions.map { (it.timestamp - 4 * 3600 * 1000L) / (24 * 3600 * 1000L) }.toSet().size
+    val filteredSessions = remember(allSessions, selectedFilter, customStartDate, customEndDate) {
+        when (selectedFilter) {
+            HistoryFilter.ALL -> allSessions
+            HistoryFilter.WEEK -> {
+                val now = Clock.System.now().toEpochMilliseconds()
+                val startOfWeek = viewModel.getStartOfLogicalDay(now, dayRhythm) - 6 * 24 * 3600 * 1000L
+                allSessions.filter { it.timestamp >= startOfWeek }
+            }
+            HistoryFilter.MONTH -> {
+                val now = Clock.System.now().toEpochMilliseconds()
+                val startOfMonth = viewModel.getStartOfLogicalDay(now, dayRhythm) - 30 * 24 * 3600 * 1000L
+                allSessions.filter { it.timestamp >= startOfMonth }
+            }
+            HistoryFilter.YEAR -> {
+                val now = Clock.System.now().toEpochMilliseconds()
+                val startOfYear = viewModel.getStartOfLogicalDay(now, dayRhythm) - 365 * 24 * 3600 * 1000L
+                allSessions.filter { it.timestamp >= startOfYear }
+            }
+            HistoryFilter.CUSTOM -> {
+                allSessions.filter { session ->
+                    val afterStart = customStartDate?.let { session.timestamp >= it } ?: true
+                    val beforeEnd = customEndDate?.let { session.timestamp <= it + 24 * 3600 * 1000L } ?: true
+                    afterStart && beforeEnd
+                }
+            }
+        }
+    }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)) {
-        item { Text("Consumption Analytics".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+    val totalGrams = filteredSessions.sumOf { it.grams }.roundToDecimals(1)
+    val sessionsCount = filteredSessions.size
+    val daysCount = if (filteredSessions.isEmpty()) 1 else filteredSessions.map { viewModel.getStartOfLogicalDay(it.timestamp, dayRhythm) }.toSet().size
+    val dailyAverage = (totalGrams / daysCount.coerceAtLeast(1)).roundToDecimals(1)
+
+    val summaryTitle = when (selectedFilter) {
+        HistoryFilter.ALL -> "SINCE FIRST LOG"
+        HistoryFilter.WEEK -> "WEEK SUMMARY"
+        HistoryFilter.MONTH -> "MONTH SUMMARY"
+        HistoryFilter.YEAR -> "YEAR SUMMARY"
+        else -> "CUSTOM SUMMARY"
+    }.translate(lang)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp)
+    ) {
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Weekly Trends (Last 7 Days)".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant))
-                    Spacer(modifier = Modifier.height(44.dp)) // Guaranteed headroom for labels
-                    Row(modifier = Modifier.fillMaxWidth().height(170.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
-                        weeklyStats.forEach { stat ->
-                            val heightFrac = (stat.totalGrams / maxGrams).toFloat().coerceIn(0.01f, 1f)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Bottom) {
-                                if (stat.totalGrams > 0.0) {
-                                    Text(
-                                        text = stat.totalGrams.format(1, lang), 
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                }
-                                Box(modifier = Modifier.fillMaxHeight(heightFrac).width(24.dp).clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)).background(if (stat.totalGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant))
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(stat.dayLabel.translate(lang), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = if (stat.totalGrams > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)))
+            Text(
+                text = "Usage Analytics".translate(lang),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HistoryFilter.entries.forEach { filter ->
+                    val label = when (filter) {
+                        HistoryFilter.ALL -> "Since First Log"
+                        HistoryFilter.WEEK -> "This Week"
+                        HistoryFilter.MONTH -> "This Month"
+                        HistoryFilter.YEAR -> "This Year"
+                        HistoryFilter.CUSTOM -> "Custom Range"
+                    }.translate(lang)
+                    
+                    FilterTabChip(label, selectedFilter == filter) { 
+                        if (filter == HistoryFilter.ALL) {
+                            scope.launch {
+                                val first = viewModel.getFirstSessionTimestamp()
+                                if (first != null) {
+                                    customStartDate = first
+                                    customEndDate = Clock.System.now().toEpochMilliseconds()
+                                    selectedFilter = HistoryFilter.CUSTOM
+                                } else { selectedFilter = HistoryFilter.ALL }
                             }
-                        }
+                        } else { selectedFilter = filter }
                     }
                 }
             }
         }
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatInsightCard("Total Sessions".translate(lang), "${allSessions.size} " + (if(lang == "de") "mal" else "times"), Icons.Default.Assessment, MaterialTheme.colorScheme.primary, activeAppIconIndex, Modifier.weight(1f))
-                StatInsightCard("Total Grams".translate(lang), "${totalGrams.format(1, lang)}g", Icons.Default.Spa, MaterialTheme.colorScheme.secondary, activeAppIconIndex, Modifier.weight(1f))
+
+        if (selectedFilter == HistoryFilter.CUSTOM) {
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { triggerWebDatePicker { customStartDate = it.toLongOrNull() ?: customStartDate } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                        Text(customStartDate?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { d -> "${d.dayOfMonth}.${d.monthNumber}.${d.year}" } } ?: "Select Start Date".translate(lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Button(onClick = { triggerWebDatePicker { customEndDate = it.toLongOrNull() ?: customEndDate } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                        Text(customEndDate?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { d -> "${d.dayOfMonth}.${d.monthNumber}.${d.year}" } } ?: "Select End Date".translate(lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
-        item { 
-            StatInsightCard(title = "Daily Average".translate(lang), value = "${(totalGrams / daysCount.coerceAtLeast(1)).format(1, lang)}g", icon = Icons.Default.FilterVintage, color = MaterialTheme.colorScheme.tertiary, subCaption = "Logged".translate(lang) + ": $daysCount " + "Days".translate(lang), appIconIndex = activeAppIconIndex, modifier = Modifier.fillMaxWidth()) 
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Weekly Trends (Last 7 Days)".translate(lang), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                        Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp)) {
+                            Text(text = "Total: ".translate(lang) + "${totalGrams.format(1, lang)}g", modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
+                    
+                    if (selectedFilter == HistoryFilter.WEEK) {
+                        BarChart(weeklyStats, dailyGoalGrams, lang, modifier = Modifier.fillMaxWidth().height(200.dp))
+                    } else {
+                        val filterStats = remember(filteredSessions, dayRhythm) {
+                            val map = mutableMapOf<String, DayStat>()
+                            filteredSessions.forEach { session ->
+                                val logicalTime = viewModel.getStartOfLogicalDay(session.timestamp, dayRhythm)
+                                val dt = Instant.fromEpochMilliseconds(logicalTime).toLocalDateTime(TimeZone.currentSystemDefault())
+                                val key = "${dt.dayOfMonth}.${dt.monthNumber}"
+                                val existing = map[key]
+                                if (existing == null) {
+                                    map[key] = DayStat(key, 1, session.grams, logicalTime)
+                                } else {
+                                    map[key] = existing.copy(sessionsCount = existing.sessionsCount + 1, totalGrams = (existing.totalGrams + session.grams).roundToDecimals(1))
+                                }
+                            }
+                            map.values.sortedBy { it.dateTimestamp }
+                        }
+                        LineChart(filterStats, dailyGoalGrams, lang, modifier = Modifier.fillMaxWidth().height(200.dp))
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                StatInsightCard("Daily Average".translate(lang), dailyAverage.format(1, lang), Icons.Default.FilterVintage, Color(0xFF2E7D32), activeAppIconIndex, modifier = Modifier.weight(1f), subCaption = "Logged".translate(lang) + ": $daysCount " + "Days".translate(lang))
+                StatInsightCard("Total Sessions".translate(lang), "$sessionsCount", Icons.Default.Assessment, MaterialTheme.colorScheme.primary, activeAppIconIndex, modifier = Modifier.weight(1f))
+            }
         }
 
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "USAGE SUMMARY".translate(lang), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
-                            Text(text = "Usage Details".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)))
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(text = "PERIOD RANGE".translate(lang), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
-                            val df = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                            Text(text = "Last 7 Days".translate(lang), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                        }
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp).alpha(0.1f))
+                    Text(summaryTitle, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
-                            Text(text = "Sessions".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                            Text(text = "${allSessions.size} " + (if(lang == "de") "mal" else "times"), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black))
+                            Text("Sessions".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                            Text("$sessionsCount", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black))
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(text = "Consumption".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
-                            Text(text = "${totalGrams.format(1, lang)}g", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))
+                            Text("Consumption".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                            Text("${totalGrams.format(1, lang)}g", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, color = Color(0xFF2E7D32)))
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun FilterTabChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+    ) {
+        Text(text = label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+    }
+}
+
+@Composable
+fun BarChart(stats: List<DayStat>, dailyGoalGrams: Double, lang: String, modifier: Modifier = Modifier) {
+    var pressedStat by remember { mutableStateOf<DayStat?>(null) }
+    Box(modifier = modifier) {
+        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceEvenly) {
+            stats.forEach { stat ->
+                val maxVal = (stats.maxOfOrNull { it.totalGrams } ?: 1.0).coerceAtLeast(0.1)
+                val heightFrac = (stat.totalGrams / maxVal).toFloat().coerceIn(0f, 1f)
+                val isExceeded = stat.totalGrams > dailyGoalGrams
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom, modifier = Modifier.weight(1f).fillMaxHeight().pointerInput(stat) {
+                    detectTapGestures(onPress = { pressedStat = stat; try { awaitRelease() } finally { pressedStat = null } })
+                }) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                        Box(modifier = Modifier.fillMaxHeight(heightFrac.coerceAtLeast(0.05f)).width(20.dp).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)).background(if (stat.totalGrams > 0) { if (isExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary } else { MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f) }))
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = stat.dayLabel.translate(lang), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
+                }
+            }
+        }
+        if (pressedStat != null && pressedStat!!.totalGrams > 0) {
+            Surface(modifier = Modifier.align(Alignment.TopCenter).offset(y = (-45).dp), color = if (pressedStat!!.totalGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(8.dp), tonalElevation = 8.dp) {
+                Text(text = "${pressedStat!!.totalGrams.format(1, lang)}g", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun LineChart(stats: List<DayStat>, dailyGoalGrams: Double, lang: String, modifier: Modifier = Modifier) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val errorColor = MaterialTheme.colorScheme.error
+    val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    var pressedStat by remember { mutableStateOf<DayStat?>(null) }
+    var touchPoint by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+
+    Column(modifier = modifier) {
+        Box(modifier = Modifier.weight(1f)) {
+            Canvas(modifier = Modifier.fillMaxSize().pointerInput(stats) {
+                detectTapGestures(onPress = { offset ->
+                    if (stats.isEmpty()) return@detectTapGestures
+                    val spacing = size.width.toFloat() / (stats.size - 1).coerceAtLeast(1)
+                    val index = (offset.x / spacing).roundToInt().coerceIn(0, stats.size - 1)
+                    pressedStat = stats[index]; touchPoint = offset
+                    try { awaitRelease() } finally { pressedStat = null; touchPoint = null }
+                })
+            }) {
+                if (stats.isEmpty()) return@Canvas
+                val maxVal = (stats.maxOfOrNull { it.totalGrams } ?: 1.0).coerceAtLeast(1.0).toFloat()
+                val spacing = size.width / (stats.size - 1).coerceAtLeast(1)
+                val points = stats.mapIndexed { index, stat ->
+                    val x = index * spacing
+                    val y = size.height - (stat.totalGrams.toFloat() / maxVal * size.height)
+                    androidx.compose.ui.geometry.Offset(x, y)
+                }
+                for (i in 0..4) {
+                    val y = size.height - (i / 4f * size.height)
+                    drawLine(outlineColor, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = 1.dp.toPx())
+                }
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    if (points.isNotEmpty()) {
+                        moveTo(points[0].x, points[0].y)
+                        for (i in 1 until points.size) lineTo(points[i].x, points[i].y)
+                    }
+                }
+                drawPath(path, primaryColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                points.forEachIndexed { index, point ->
+                    val isExceeded = stats[index].totalGrams > dailyGoalGrams
+                    drawCircle(if (isExceeded) errorColor else primaryColor, radius = 4.dp.toPx(), center = point)
+                    drawCircle(Color.White, radius = 1.5.dp.toPx(), center = point)
+                }
+            }
+            if (pressedStat != null && touchPoint != null) {
+                Surface(modifier = Modifier.align(Alignment.TopCenter).offset(y = (-40).dp), color = if (pressedStat!!.totalGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(8.dp), tonalElevation = 6.dp) {
+                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = pressedStat!!.dayLabel, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
+                        Text(text = "${pressedStat!!.totalGrams.format(1, lang)}g", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                    }
+                }
+            }
+        }
+        if (stats.size >= 2) {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(stats.first().dayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stats.last().dayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -807,9 +1119,18 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("App Maintenance".translate(lang), expandedSection == "maint", onToggle = { onToggleSection(if (expandedSection == "maint") null else "maint") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Check for updates or refresh the app cache.".translate(lang), style = MaterialTheme.typography.bodySmall); Button(onClick = { forceAppUpdate() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh".translate(lang)) } }
         } }
-        item { var v132 by remember { mutableStateOf(false) }; var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
+        item { var v135 by remember { mutableStateOf(false) }; var v132 by remember { mutableStateOf(false) }; var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
             CollapsibleSettingsCard(title = "Changelog".translate(lang), isExpanded = expandedSection == "changelog", onToggle = { onToggleSection(if (expandedSection == "changelog") null else "changelog") }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CollapsibleSubSection(title = "Version 1.3.5", isExpanded = v135, onToggle = { v135 = !v135 }) {
+                        ChangelogDetailText("• " + "Limit Confirmation: Mandatory dialog when reaching daily limits".translate(lang))
+                        ChangelogDetailText("• " + "Log Debouncing: 2-second cooldown to prevent double-logs".translate(lang))
+                        ChangelogDetailText("• " + "Enhanced Statistics: Line Charts for Month/Year views".translate(lang))
+                        ChangelogDetailText("• " + "Interactive Charts: Press and hold to see exact values".translate(lang))
+                        ChangelogDetailText("• " + "Journal Integration: Select strains directly in the log dialog".translate(lang))
+                        ChangelogDetailText("• " + "Future Logging: Blocked logs with future timestamps".translate(lang))
+                        ChangelogDetailText("• " + "Compact UI: Reduced vertical size for better overview".translate(lang))
+                    }
                     CollapsibleSubSection(title = "Version 1.3.2", isExpanded = v132, onToggle = { v132 = !v132 }) {
                         ChangelogDetailText("• " + "Full localization: 100% German UI coverage and bug fixes".translate(lang))
                         ChangelogDetailText("• " + "iPhone Notification Fix: Improved reliability for iOS".translate(lang))
@@ -861,7 +1182,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { onToggleSection(if (expandedSection == "danger") null else "danger") }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
-        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.2", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)); Spacer(Modifier.height(8.dp)); Text("Human Vision & AI Power", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) } } }
+        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.5", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)); Spacer(Modifier.height(8.dp)); Text("Human Vision & AI Power", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) } } }
     }
 }
 
@@ -914,6 +1235,12 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    
+                    val sourceTag = if (session.notes.contains("Widget")) "Widget" else if (session.notes.contains("Dashboard")) "Web" else "App"
+                    Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)) {
+                        Text(sourceTag, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                    }
+
                     val dt = Instant.fromEpochMilliseconds(session.timestamp).toLocalDateTime(TimeZone.currentSystemDefault()).time
                     Surface(
                         shape = RoundedCornerShape(4.dp),
@@ -964,9 +1291,106 @@ fun EditSessionDialog(session: SmokeSession, lang: String, maxDosage: Double, on
 }
 
 @Composable
-fun AddManualSessionDialog(initialGrams: Double, lang: String, maxDosage: Double, theme: CannabisTheme, onDismiss: () -> Unit, onSave: (Double, String, String, Long) -> Unit) {
-    var grams by remember { mutableStateOf(initialGrams) }; var strain by remember { mutableStateOf("") }; var notes by remember { mutableStateOf("") }; var timestamp by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
-    AlertDialog(onDismissRequest = {}, title = { Text("Log Smoke Session 🌿".translate(lang), fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { Text("Amount:".translate(lang) + " ${grams.format(1, lang)}g", fontWeight = FontWeight.Bold); Slider(value = grams.toFloat(), onValueChange = { grams = it.toDouble() }, valueRange = 0.0f..maxDosage.toFloat()); Text("Time:".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); val dt = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault()); Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Column(modifier = Modifier.weight(1f)) { Text("Hour".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.hour.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, it.toInt(), dt.minute, 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..23f, steps = 23) }; Column(modifier = Modifier.weight(1f)) { Text("Minute".translate(lang), style = MaterialTheme.typography.labelSmall); Slider(value = dt.minute.toFloat(), onValueChange = { val newDt = LocalDateTime(dt.year, dt.month, dt.dayOfMonth, dt.hour, it.toInt(), 0, 0); timestamp = newDt.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds() }, valueRange = 0f..59f, steps = 59) } }; Text("${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center); TextField(value = strain, onValueChange = { strain = it }, label = { Text("Strain / Variety".translate(lang)) }, modifier = Modifier.fillMaxWidth() ); TextField(value = notes, onValueChange = { notes = it }, label = { Text("Session Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth() ) } }, confirmButton = { Button(onClick = { onSave(grams, strain, notes, timestamp) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
+fun AddManualSessionDialog(
+    initialGrams: Double, 
+    lang: String, 
+    maxDosage: Double, 
+    theme: CannabisTheme, 
+    onDismiss: () -> Unit, 
+    allStrains: List<StrainEntry> = emptyList(),
+    onSave: (Double, String, String, Long) -> Unit
+) {
+    var grams by remember { mutableStateOf(if (initialGrams > 0.0) initialGrams else 0.2) }
+    var strain by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var timestamp by remember { mutableStateOf(Clock.System.now().toEpochMilliseconds()) }
+    var timeOption by remember { mutableStateOf("now") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showStrainPicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(timeOption) {
+        when (timeOption) {
+            "now" -> { timestamp = Clock.System.now().toEpochMilliseconds(); errorMessage = null }
+            "15m" -> { timestamp = Clock.System.now().toEpochMilliseconds() - 15 * 60 * 1000L; errorMessage = null }
+            "1h" -> { timestamp = Clock.System.now().toEpochMilliseconds() - 60 * 60 * 1000L; errorMessage = null }
+            "3h" -> { timestamp = Clock.System.now().toEpochMilliseconds() - 3 * 60 * 60 * 1000L; errorMessage = null }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss, 
+        title = { Text("Log Dose".translate(lang), fontWeight = FontWeight.Black) }, 
+        text = { 
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { 
+                // Grams Control
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Amount (Grams):".translate(lang), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        Text("${grams.format(1, lang)} g", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { if (grams > 0.1) grams = (grams - 0.1).roundToDecimals(1) }) { Icon(Icons.Default.Remove, null) }
+                        Slider(value = grams.toFloat(), onValueChange = { grams = it.toDouble().roundToDecimals(1) }, valueRange = 0.1f..maxDosage.toFloat().coerceAtLeast(0.1f), modifier = Modifier.weight(1f))
+                        IconButton(onClick = { grams = (grams + 0.1).roundToDecimals(1) }) { Icon(Icons.Default.Add, null) }
+                    }
+                }
+
+                // Time Selection
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Time of Session:".translate(lang), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("now" to "Now", "15m" to "-15m", "1h" to "-1h", "3h" to "-3h", "custom" to "Custom...").forEach { (opt, label) ->
+                            val isSel = timeOption == opt
+                            Button(
+                                onClick = { 
+                                    timeOption = opt
+                                    if (opt == "custom") { triggerWebDatePicker { timestamp = it.toLongOrNull() ?: timestamp; timeOption = "custom" } }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, contentColor = if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier.weight(1f).height(32.dp)
+                            ) { Text(label.translate(lang), fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal) }
+                        }
+                    }
+                    val dt = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(TimeZone.currentSystemDefault())
+                    Text("${dt.dayOfMonth}.${dt.monthNumber}.${dt.year}  ${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}", 
+                        style = MaterialTheme.typography.labelMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.primary)
+                }
+
+                // Strain Picker
+                Box {
+                    OutlinedTextField(
+                        value = strain, 
+                        onValueChange = { strain = it }, 
+                        label = { Text("Strain / Variety".translate(lang)) }, 
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = { if (allStrains.isNotEmpty()) IconButton(onClick = { showStrainPicker = true }) { Icon(Icons.AutoMirrored.Filled.MenuBook, null) } }
+                    )
+                    DropdownMenu(expanded = showStrainPicker, onDismissRequest = { showStrainPicker = false }, modifier = Modifier.fillMaxWidth(0.8f)) {
+                        allStrains.forEach { entry ->
+                            DropdownMenuItem(text = { Text(entry.strainName) }, onClick = { strain = entry.strainName; showStrainPicker = false })
+                        }
+                    }
+                }
+
+                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Session Notes".translate(lang)) }, modifier = Modifier.fillMaxWidth()) 
+                
+                if (errorMessage != null) {
+                    Text(errorMessage!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+            } 
+        }, 
+        confirmButton = { 
+            Button(onClick = { 
+                if (timestamp > Clock.System.now().toEpochMilliseconds()) {
+                    errorMessage = "Cannot log in the future".translate(lang)
+                } else {
+                    onSave(grams, strain, notes, timestamp) 
+                }
+            }) { Text("Save".translate(lang), fontWeight = FontWeight.Bold) } 
+        }, 
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } }
+    )
 }
 
 @Composable
