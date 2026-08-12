@@ -1,26 +1,21 @@
-Hallo Leute und Freunde des Grünens
+Hallo Leute und Freunde des Grüns! 
 
-GreenTrackerApp Web die erste Live Version die super funktioniert und eine Kopie meiner Android App ist. 
-(Die folgt bald im PlayStore, aktuell in Verifizierung)
+Hier findet ihr die erste, voll funktionsfähige Live-Version der GreenTrackerApp Web. Sie ist eine exakte Kopie meiner kommenden Android-App, die sich aktuell in der Verifizierung befindet und bald im PlayStore erscheint.
 
-Mit Hilfe am Anfang vom Google Android Studio
-und dann Android Studio und Agent,
-kam diese App raus.
+Die App ist für alle Patienten und die 420-Community gedacht, um den eigenen Verbrauch übersichtlich zu kontrollieren und zu protokollieren.
 
-Ja ich musste viele Stunden eine KI anbrüllen 
-und paar Dinge mal auch per Hand biegen.
+Features:
 
-Habe viel Zeit in Konzept, Aussehen, Funktionen nachgedacht, Stunden lang prompts und Ideen asugefeilt.
+Verbrauchsprotokoll: Behalte den genauen Überblick über deinen Verbrauch.
 
-Das ganze Projekt Endstand auf kostenloser Basis von Google 
-Kann unter iPhone mit Safari als „App“ installiert werden 
-Die webapp soll jedem Patienten da draußen und alles anderen 
-420 Leuten, ihren Verbrauch zu kontrollieren und protokollieren.
+Sorten-Tagebuch: Halte verschiedene Sorten fest und bewerte sie.
 
-Kann auf iPhone mit Safari als „App“ gespeichert werden 
+Fotofunktion: Ergänze deine Einträge direkt mit eigenen Bildern.
 
-Als Extra bietet die App auch ein Tagebuch um Sorten festzuhalten 
-und zu bewerten, samt Foto Funktion 
+Progressive Web App: iPhone-Nutzer können die Seite via Safari einfach als Web-App auf dem Homescreen speichern.
 
-Ich werden stetig dran weiter arbeiten :)
-https://greentrackerapp.github.io/GreenTrackerWeb/
+ Behind the Scenes:
+Das Projekt ist auf der kostenlosen Basis von Google entstanden. Die Entwicklung begann klassisch in Android Studio, wurde dann aber massiv durch KI-Agents unterstützt. Das bedeutete in der Praxis: Viele Stunden lang eine KI "anbrüllen", feilen, iterieren und am Ende doch noch ein paar Dinge per Hand geradebiegen. In Konzept, Design, Funktionalität und die perfekten Prompts ist sehr viel Herzblut und Zeit geflossen.
+
+Ich werde das Projekt stetig weiterentwickeln! 
+Link zur App: https://greentrackerapp.github.io/GreenTrackerWeb/
