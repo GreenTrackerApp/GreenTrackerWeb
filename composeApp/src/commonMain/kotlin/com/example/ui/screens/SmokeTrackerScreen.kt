@@ -532,10 +532,36 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
 
         if (filter == HistoryFilter.CUSTOM) {
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { triggerWebDatePicker { d -> try { customStartDate = LocalDate.parse(d).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() } catch(e:Exception){} } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                Button(
+                    onClick = { 
+                        triggerWebDatePicker { d -> 
+                            try { 
+                                val date = LocalDate.parse(d.trim())
+                                customStartDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                            } catch(e: Exception) {
+                                println("Error parsing start date: $d")
+                            } 
+                        } 
+                    }, 
+                    modifier = Modifier.weight(1f), 
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Text(customStartDate?.let { "From: ".translate(lang) + Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date.toString() } ?: "Select Start Date".translate(lang), style = MaterialTheme.typography.bodySmall, maxLines = 1)
                 }
-                Button(onClick = { triggerWebDatePicker { d -> try { customEndDate = LocalDate.parse(d).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() } catch(e:Exception){} } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                Button(
+                    onClick = { 
+                        triggerWebDatePicker { d -> 
+                            try { 
+                                val date = LocalDate.parse(d.trim())
+                                customEndDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                            } catch(e: Exception) {
+                                println("Error parsing end date: $d")
+                            } 
+                        } 
+                    }, 
+                    modifier = Modifier.weight(1f), 
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Text(customEndDate?.let { "To: ".translate(lang) + Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date.toString() } ?: "Select End Date".translate(lang), style = MaterialTheme.typography.bodySmall, maxLines = 1)
                 }
             }
@@ -651,10 +677,38 @@ fun StatsScreen(
         if (selectedFilter == HistoryFilter.CUSTOM) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { triggerWebDatePicker { d -> try { customStartDate = LocalDate.parse(d).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() } catch(e:Exception){} } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                    Button(
+                        onClick = { 
+                            triggerWebDatePicker { d -> 
+                                try { 
+                                    val date = LocalDate.parse(d.trim())
+                                    customStartDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                } catch(e: Exception) {
+                                    println("Error parsing start date: $d")
+                                } 
+                            } 
+                        }, 
+                        modifier = Modifier.weight(1f), 
+                        shape = RoundedCornerShape(12.dp), 
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) {
                         Text(customStartDate?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { d -> "${d.dayOfMonth}.${d.monthNumber}.${d.year}" } } ?: "Select Start Date".translate(lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
-                    Button(onClick = { triggerWebDatePicker { d -> try { customEndDate = LocalDate.parse(d).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() } catch(e:Exception){} } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                    Button(
+                        onClick = { 
+                            triggerWebDatePicker { d -> 
+                                try { 
+                                    val date = LocalDate.parse(d.trim())
+                                    customEndDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                } catch(e: Exception) {
+                                    println("Error parsing end date: $d")
+                                } 
+                            } 
+                        }, 
+                        modifier = Modifier.weight(1f), 
+                        shape = RoundedCornerShape(12.dp), 
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) {
                         Text(customEndDate?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { d -> "${d.dayOfMonth}.${d.monthNumber}.${d.year}" } } ?: "Select End Date".translate(lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
