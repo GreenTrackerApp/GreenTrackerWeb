@@ -457,7 +457,7 @@ fun HomeScreen(
                             ) {
                                 Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "loggen".translate(lang), fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                Text(text = "Log".translate(lang), fontWeight = FontWeight.Black, fontSize = 14.sp)
                             }
                         }
                     }

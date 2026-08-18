@@ -535,7 +535,9 @@ fun String.translate(lang: String): String {
         "Eintrag aktualisiert" -> "Eintrag aktualisiert"
         "Sorte hinzugefügt" -> "Sorte hinzugefügt"
         "Privacy Policy / Datenschutzerklärung" -> "Datenschutzerklärung"
-        "Log" -> "loggen"
+        "Log" -> "Loggen"
+        "Log Dose" -> "Dosis loggen"
+        "Cannot log in the future" -> "Zeitpunkt liegt in der Zukunft"
         "Dose logged" -> "Dosis geloggt"
         "Now" -> "Jetzt"
         "-15m" -> "-15 Min."
@@ -545,7 +547,7 @@ fun String.translate(lang: String): String {
         "Quick logged from Dashboard" -> "Schnell-Log über Dashboard"
         "Save" -> "Speichern"
         "Add Photo" -> "Foto hinzufügen"
-        "Notes (Optional)..." -> "Notizen ( optional )"
+        "Notes (Optional)..." -> "Notizen (optional)"
         else -> this
     }
 }
