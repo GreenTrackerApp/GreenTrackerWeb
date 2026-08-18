@@ -75,7 +75,7 @@ enum class HistoryFilter {
     ALL, WEEK, MONTH, YEAR, CUSTOM
 }
 
-@JsFun("(onDate) => { const input = document.createElement('input'); input.type = 'date'; input.onchange = (e) => { const date = e.target.value; if (date) { onDate(date); } }; input.click(); }")
+@JsFun("(onDate) => { const input = document.createElement('input'); input.type = 'date'; input.style.position = 'fixed'; input.style.top = '-100px'; document.body.appendChild(input); input.onchange = (e) => { const date = e.target.value; if (date) { onDate(date); } document.body.removeChild(input); }; input.oncancel = () => { document.body.removeChild(input); }; input.click(); }")
 external fun triggerWebDatePicker(onDate: (String) -> Unit): Unit
 
 @JsFun("""() => { 
@@ -536,10 +536,20 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
                     onClick = { 
                         triggerWebDatePicker { d -> 
                             try { 
-                                val date = LocalDate.parse(d.trim())
-                                customStartDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                val cleaned = d.trim()
+                                if (cleaned.isNotEmpty()) {
+                                    val date = if (cleaned.contains("-")) {
+                                        LocalDate.parse(cleaned)
+                                    } else {
+                                        // Handle potential other formats if browser misbehaves
+                                        val parts = cleaned.split(".", "/")
+                                        if (parts.size == 3) LocalDate(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+                                        else LocalDate.parse(cleaned)
+                                    }
+                                    customStartDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                }
                             } catch(e: Exception) {
-                                println("Error parsing start date: $d")
+                                println("Error parsing start date: $d - ${e.message}")
                             } 
                         } 
                     }, 
@@ -552,10 +562,19 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
                     onClick = { 
                         triggerWebDatePicker { d -> 
                             try { 
-                                val date = LocalDate.parse(d.trim())
-                                customEndDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                val cleaned = d.trim()
+                                if (cleaned.isNotEmpty()) {
+                                    val date = if (cleaned.contains("-")) {
+                                        LocalDate.parse(cleaned)
+                                    } else {
+                                        val parts = cleaned.split(".", "/")
+                                        if (parts.size == 3) LocalDate(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+                                        else LocalDate.parse(cleaned)
+                                    }
+                                    customEndDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                }
                             } catch(e: Exception) {
-                                println("Error parsing end date: $d")
+                                println("Error parsing end date: $d - ${e.message}")
                             } 
                         } 
                     }, 
@@ -681,10 +700,19 @@ fun StatsScreen(
                         onClick = { 
                             triggerWebDatePicker { d -> 
                                 try { 
-                                    val date = LocalDate.parse(d.trim())
-                                    customStartDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                    val cleaned = d.trim()
+                                    if (cleaned.isNotEmpty()) {
+                                        val date = if (cleaned.contains("-")) {
+                                            LocalDate.parse(cleaned)
+                                        } else {
+                                            val parts = cleaned.split(".", "/")
+                                            if (parts.size == 3) LocalDate(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+                                            else LocalDate.parse(cleaned)
+                                        }
+                                        customStartDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                    }
                                 } catch(e: Exception) {
-                                    println("Error parsing start date: $d")
+                                    println("Error parsing start date: $d - ${e.message}")
                                 } 
                             } 
                         }, 
@@ -698,10 +726,19 @@ fun StatsScreen(
                         onClick = { 
                             triggerWebDatePicker { d -> 
                                 try { 
-                                    val date = LocalDate.parse(d.trim())
-                                    customEndDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                    val cleaned = d.trim()
+                                    if (cleaned.isNotEmpty()) {
+                                        val date = if (cleaned.contains("-")) {
+                                            LocalDate.parse(cleaned)
+                                        } else {
+                                            val parts = cleaned.split(".", "/")
+                                            if (parts.size == 3) LocalDate(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+                                            else LocalDate.parse(cleaned)
+                                        }
+                                        customEndDate = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                    }
                                 } catch(e: Exception) {
-                                    println("Error parsing end date: $d")
+                                    println("Error parsing end date: $d - ${e.message}")
                                 } 
                             } 
                         }, 
