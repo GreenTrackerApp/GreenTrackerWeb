@@ -75,7 +75,7 @@ enum class HistoryFilter {
     ALL, WEEK, MONTH, YEAR, CUSTOM
 }
 
-@JsFun("(onDate) => { const input = document.createElement('input'); input.type = 'date'; input.style.position = 'fixed'; input.style.top = '-100px'; document.body.appendChild(input); input.onchange = (e) => { const date = e.target.value; if (date) { onDate(date); } document.body.removeChild(input); }; input.oncancel = () => { document.body.removeChild(input); }; input.click(); }")
+@JsFun("(onDate) => { const input = document.createElement('input'); input.type = 'date'; input.style.position = 'fixed'; input.style.top = '-100px'; input.style.left = '-100px'; input.style.opacity = '0'; document.body.appendChild(input); const handler = (e) => { const date = e.target.value; if (date) { onDate(date); } }; input.oninput = handler; input.onchange = handler; input.onblur = () => { setTimeout(() => { try { document.body.removeChild(input); } catch(e) {} }, 500); }; if (input.showPicker) { try { input.showPicker(); } catch (e) { input.focus(); input.click(); } } else { input.focus(); input.click(); } }")
 external fun triggerWebDatePicker(onDate: (String) -> Unit): Unit
 
 @JsFun("""() => { 
@@ -482,10 +482,10 @@ fun HomeScreen(
 
 @Composable
 fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: SmokeViewModel, activeAppIconIndex: Int) {
-    var filter by remember { mutableStateOf(HistoryFilter.ALL) }
+    var filter by rememberSaveable { mutableStateOf(HistoryFilter.ALL) }
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
-    var customStartDate by remember { mutableStateOf<Long?>(null) }
-    var customEndDate by remember { mutableStateOf<Long?>(null) }
+    var customStartDate by rememberSaveable { mutableStateOf<Long?>(null) }
+    var customEndDate by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val filtered = remember(allSessions, filter, customStartDate, customEndDate) {
         val now = Clock.System.now().toEpochMilliseconds()
@@ -615,9 +615,9 @@ fun StatsScreen(
     activeAppIconIndex: Int,
     viewModel: SmokeViewModel
 ) {
-    var selectedFilter by remember { mutableStateOf(HistoryFilter.WEEK) }
-    var customStartDate by remember { mutableStateOf<Long?>(null) }
-    var customEndDate by remember { mutableStateOf<Long?>(null) }
+    var selectedFilter by rememberSaveable { mutableStateOf(HistoryFilter.WEEK) }
+    var customStartDate by rememberSaveable { mutableStateOf<Long?>(null) }
+    var customEndDate by rememberSaveable { mutableStateOf<Long?>(null) }
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
     val dailyGoalGrams by viewModel.dailyGoalGrams.collectAsState()
 
