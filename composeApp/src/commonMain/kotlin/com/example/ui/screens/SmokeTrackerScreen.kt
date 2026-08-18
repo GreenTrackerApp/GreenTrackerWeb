@@ -524,7 +524,7 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
         Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HistoryFilter.entries.forEach { f ->
                 val label = when (f) {
-                    HistoryFilter.ALL -> "All"; HistoryFilter.WEEK -> "WEEK"; HistoryFilter.MONTH -> "MONTH"; HistoryFilter.YEAR -> "YEAR"; HistoryFilter.CUSTOM -> "Custom Range"
+                    HistoryFilter.ALL -> "All"; HistoryFilter.WEEK -> "This Week"; HistoryFilter.MONTH -> "This Month"; HistoryFilter.YEAR -> "This Year"; HistoryFilter.CUSTOM -> "Custom Range"
                 }.translate(lang)
                 FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(label) })
             }
@@ -573,7 +573,6 @@ fun StatsScreen(
     var selectedFilter by remember { mutableStateOf(HistoryFilter.WEEK) }
     var customStartDate by remember { mutableStateOf<Long?>(null) }
     var customEndDate by remember { mutableStateOf<Long?>(null) }
-    val scope = rememberCoroutineScope()
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
     val dailyGoalGrams by viewModel.dailyGoalGrams.collectAsState()
 
@@ -643,16 +642,7 @@ fun StatsScreen(
                     }.translate(lang)
                     
                     FilterTabChip(label, selectedFilter == filter) { 
-                        if (filter == HistoryFilter.ALL) {
-                            scope.launch {
-                                val first = viewModel.getFirstSessionTimestamp()
-                                if (first != null) {
-                                    customStartDate = first
-                                    customEndDate = Clock.System.now().toEpochMilliseconds()
-                                    selectedFilter = HistoryFilter.CUSTOM
-                                } else { selectedFilter = HistoryFilter.ALL }
-                            }
-                        } else { selectedFilter = filter }
+                        selectedFilter = filter
                     }
                 }
             }
