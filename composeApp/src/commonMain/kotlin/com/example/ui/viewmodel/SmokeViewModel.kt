@@ -309,7 +309,7 @@ fun Double.format(decimals: Int, lang: String = "de"): String {
 fun String.translate(lang: String): String {
     if (lang != "de") return this
     return when (this) {
-        "Home" -> "Start"
+        "Home" -> "Home"
         "History" -> "Verlauf"
         "Stats" -> "Statistik"
         "Journal" -> "Journal"
@@ -535,6 +535,17 @@ fun String.translate(lang: String): String {
         "Eintrag aktualisiert" -> "Eintrag aktualisiert"
         "Sorte hinzugefügt" -> "Sorte hinzugefügt"
         "Privacy Policy / Datenschutzerklärung" -> "Datenschutzerklärung"
+        "Log" -> "loggen"
+        "Dose logged" -> "Dosis geloggt"
+        "Now" -> "Jetzt"
+        "-15m" -> "-15 Min."
+        "-1h" -> "-1 Std."
+        "-3h" -> "-3 Std."
+        "Custom..." -> "Andere..."
+        "Quick logged from Dashboard" -> "Schnell-Log über Dashboard"
+        "Save" -> "Speichern"
+        "Add Photo" -> "Foto hinzufügen"
+        "Notes (Optional)..." -> "Notizen ( optional )"
         else -> this
     }
 }

@@ -448,14 +448,17 @@ fun HomeScreen(
                             }
                             Text(text = "Slide to set log amount".translate(lang), style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)))
                         }
-                        Button(
-                            onClick = { onLogRequest(quickLogGrams, "", "Quick logged from Dashboard".translate(lang), Clock.System.now().toEpochMilliseconds()) }, 
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "${quickLogGrams.format(1, lang)}g", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(text = "${quickLogGrams.format(1, lang)}g", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
+                            Button(
+                                onClick = { onLogRequest(quickLogGrams, "", "Quick logged from Dashboard".translate(lang), Clock.System.now().toEpochMilliseconds()) }, 
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "loggen".translate(lang), fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -500,10 +503,10 @@ fun HistoryScreen(allSessions: List<SmokeSession>, lang: String, viewModel: Smok
     }
 
     val grouped = remember(filtered, dayRhythm) {
-        filtered.groupBy { 
+        filtered.sortedByDescending { it.timestamp }.groupBy { 
             val inst = Instant.fromEpochMilliseconds(it.timestamp - dayRhythm * 3600 * 1000L)
             inst.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
-        }.toList().sortedByDescending { it.first }
+        }.toList()
     }
 
     val todayDate = remember(dayRhythm) {
@@ -658,10 +661,10 @@ fun StatsScreen(
         if (selectedFilter == HistoryFilter.CUSTOM) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { triggerWebDatePicker { customStartDate = it.toLongOrNull() ?: customStartDate } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                    Button(onClick = { triggerWebDatePicker { d -> try { customStartDate = LocalDate.parse(d).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() } catch(e:Exception){} } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
                         Text(customStartDate?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { d -> "${d.dayOfMonth}.${d.monthNumber}.${d.year}" } } ?: "Select Start Date".translate(lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
-                    Button(onClick = { triggerWebDatePicker { customEndDate = it.toLongOrNull() ?: customEndDate } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
+                    Button(onClick = { triggerWebDatePicker { d -> try { customEndDate = LocalDate.parse(d).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() } catch(e:Exception){} } }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) {
                         Text(customEndDate?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { d -> "${d.dayOfMonth}.${d.monthNumber}.${d.year}" } } ?: "Select End Date".translate(lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1229,7 +1232,7 @@ fun SessionItemRow(session: SmokeSession, lang: String, viewModel: SmokeViewMode
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = if (session.strain.isNotEmpty()) session.strain else "Smoke Session".translate(lang),
+                        text = if (session.strain.isNotEmpty()) session.strain else "Dose logged".translate(lang),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1402,8 +1405,8 @@ fun AddEditStrainDialog(initial: StrainEntry?, lang: String, viewModel: SmokeVie
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth(), singleLine = true); 
         OutlinedTextField(value = prod, onValueChange = { prod = it }, label = { Text("Producer".translate(lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true); 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
-            OutlinedTextField(value = thcT, onValueChange = { if (it.all { c -> c.isDigit() }) thcT = it }, label = { Text("THC %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true); 
-            OutlinedTextField(value = cbdT, onValueChange = { if (it.all { c -> c.isDigit() }) cbdT = it }, label = { Text("CBD %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true) 
+            OutlinedTextField(value = thcT, onValueChange = { if (it.all { c -> c.isDigit() }) { if ((it.toDoubleOrNull() ?: 0.0) <= 100.0) thcT = it } }, label = { Text("THC %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true); 
+            OutlinedTextField(value = cbdT, onValueChange = { if (it.all { c -> c.isDigit() }) { if ((it.toDoubleOrNull() ?: 0.0) <= 100.0) cbdT = it } }, label = { Text("CBD %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true) 
         }; 
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
             listOf("Indica", "Sativa", "Hybrid").forEach { c -> FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text(c) }, modifier = Modifier.weight(1f)) } 
