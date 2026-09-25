@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -42,6 +43,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.SmokeSession
 import com.example.data.StrainEntry
+import com.example.data.getPhotoUris
 import com.example.ui.theme.CannabisTheme
 import com.example.ui.viewmodel.SmokeViewModel
 import com.example.ui.viewmodel.translate
@@ -139,6 +141,8 @@ fun SmokeTrackerScreen(
     var showAddStrainDialog by remember { mutableStateOf(false) }
     var editingStrain by remember { mutableStateOf<StrainEntry?>(null) }
     var zoomedPhoto by remember { mutableStateOf<String?>(null) }
+    var galleryStrainPair by remember { mutableStateOf<Pair<StrainEntry, Int>?>(null) }
+    var shareStrainCard by remember { mutableStateOf<StrainEntry?>(null) }
     var expandedSection by remember { mutableStateOf<String?>(null) }
 
     var logoTapCount by remember { mutableStateOf(0) }
@@ -265,7 +269,15 @@ fun SmokeTrackerScreen(
                 }
                 AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
                 AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, activeAppIconIndex, viewModel)
-                AppTab.JOURNAL -> JournalScreen(allStrains, activeLanguage, viewModel, activeAppIconIndex, onEdit = { editingStrain = it; showAddStrainDialog = true }, onZoom = { zoomedPhoto = it })
+                AppTab.JOURNAL -> JournalScreen(
+                    strains = allStrains,
+                    lang = activeLanguage,
+                    viewModel = viewModel,
+                    activeAppIconIndex = activeAppIconIndex,
+                    onEdit = { editingStrain = it; showAddStrainDialog = true },
+                    onGalleryOpen = { targetStrain, index -> galleryStrainPair = Pair(targetStrain, index) },
+                    onShareCardOpen = { targetStrain -> shareStrainCard = targetStrain }
+                )
                 AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains, activeAppIconIndex, expandedSection, onToggleSection = { expandedSection = it }, onNavigateToPrivacy = { currentTab = AppTab.PRIVACY })
                 AppTab.PRIVACY -> PrivacyPolicyScreen(activeLanguage, onBack = { currentTab = AppTab.SETTINGS })
             }
@@ -319,6 +331,34 @@ fun SmokeTrackerScreen(
         }
     }
 
+    if (galleryStrainPair != null) {
+        val (gStrain, gIdx) = galleryStrainPair!!
+        FullScreenPhotoGalleryDialog(
+            strain = gStrain,
+            initialIndex = gIdx,
+            lang = activeLanguage,
+            onDismiss = { galleryStrainPair = null },
+            onSetCoverPhoto = { targetPhoto ->
+                val photoList = gStrain.getPhotoUris()
+                if (photoList.contains(targetPhoto)) {
+                    val newPhotoList = listOf(targetPhoto) + (photoList - targetPhoto)
+                    val updatedStrain = gStrain.copy(photoUri = newPhotoList.joinToString("|"))
+                    viewModel.updateStrain(updatedStrain)
+                    galleryStrainPair = Pair(updatedStrain, 0)
+                }
+            }
+        )
+    }
+
+    if (shareStrainCard != null) {
+        StrainBusinessCardDialog(
+            strain = shareStrainCard!!,
+            lang = activeLanguage,
+            activeAppIconIndex = activeAppIconIndex,
+            onDismiss = { shareStrainCard = null }
+        )
+    }
+
     if (zoomedPhoto != null) {
         ZoomedPhotoDialog(zoomedPhoto!!, onDismiss = { zoomedPhoto = null })
     }
@@ -342,6 +382,220 @@ fun CannabisRainOverlay(activeAppIconIndex: Int) {
             }
         }
     }
+}
+
+@Composable
+fun FullScreenPhotoGalleryDialog(
+    strain: StrainEntry,
+    initialIndex: Int = 0,
+    lang: String,
+    onDismiss: () -> Unit,
+    onSetCoverPhoto: (String) -> Unit
+) {
+    val photoList = remember(strain.photoUri) { strain.getPhotoUris() }
+    if (photoList.isEmpty()) {
+        onDismiss()
+        return
+    }
+    var currentIndex by remember { mutableIntStateOf(initialIndex.coerceIn(0, (photoList.size - 1).coerceAtLeast(0))) }
+    val currentPhoto = photoList[currentIndex]
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.92f))) {
+            Box(modifier = Modifier.fillMaxSize().padding(top = 60.dp, bottom = 90.dp), contentAlignment = Alignment.Center) {
+                val imageBitmap = remember(currentPhoto) {
+                    try {
+                        val base64Data = if (currentPhoto.contains(",")) currentPhoto.split(",")[1] else currentPhoto
+                        val bytes = Base64.decode(base64Data)
+                        bytes.decodeToImageBitmap()
+                    } catch (e: Exception) { null }
+                }
+                if (imageBitmap != null) {
+                    Image(bitmap = imageBitmap, contentDescription = null, modifier = Modifier.fillMaxWidth(0.95f).clip(RoundedCornerShape(16.dp)))
+                } else {
+                    Text("Error loading photo".translate(lang), color = Color.White)
+                }
+
+                if (photoList.size > 1) {
+                    if (currentIndex > 0) {
+                        IconButton(
+                            onClick = { currentIndex-- },
+                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 8.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                        }
+                    }
+                    if (currentIndex < photoList.size - 1) {
+                        IconButton(
+                            onClick = { currentIndex++ },
+                            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White)
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(strain.strainName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("${currentIndex + 1} / ${photoList.size}", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (currentIndex == 0) {
+                        Surface(color = Color(0xFFE91E63), shape = RoundedCornerShape(12.dp)) {
+                            Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Favorite, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Cover Photo".translate(lang), fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { onSetCoverPhoto(currentPhoto); currentIndex = 0 },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f), contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.FavoriteBorder, null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Set as Cover Photo".translate(lang), fontSize = 11.sp)
+                        }
+                    }
+
+                    IconButton(onClick = onDismiss, modifier = Modifier.background(Color.White.copy(alpha = 0.2f), CircleShape)) {
+                        Icon(Icons.Default.Close, null, tint = Color.White)
+                    }
+                }
+            }
+
+            if (photoList.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 16.dp).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    photoList.forEachIndexed { idx, pUri ->
+                        val isSel = idx == currentIndex
+                        Box(
+                            modifier = Modifier.padding(horizontal = 4.dp).size(52.dp).clip(RoundedCornerShape(8.dp))
+                                .border(2.dp, if (isSel) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .clickable { currentIndex = idx },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val bitmap = remember(pUri) {
+                                try {
+                                    val base64Data = if (pUri.contains(",")) pUri.split(",")[1] else pUri
+                                    val bytes = Base64.decode(base64Data)
+                                    bytes.decodeToImageBitmap()
+                                } catch (e: Exception) { null }
+                            }
+                            if (bitmap != null) {
+                                Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            }
+                            if (idx == 0) {
+                                Icon(Icons.Default.Favorite, null, tint = Color(0xFFE91E63), modifier = Modifier.size(12.dp).align(Alignment.TopEnd).padding(2.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StrainBusinessCardDialog(
+    strain: StrainEntry,
+    lang: String,
+    activeAppIconIndex: Int = 1,
+    onDismiss: () -> Unit
+) {
+    var copySuccess by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(24.dp).clip(CircleShape))
+                Text("Strain Business Card".translate(lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(strain.strainName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                            if (strain.producerCultivar.isNotEmpty()) {
+                                Text(strain.producerCultivar, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        val ratingEmoji = if (strain.needsReview) "⏳" else when(strain.rating) {
+                            "THUMBS_DOWN" -> "👎"
+                            "NEUTRAL" -> "😐"
+                            else -> "👍"
+                        }
+                        Text(ratingEmoji, fontSize = 24.sp)
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val catColor = when (strain.category) {
+                            "Indica" -> Color(0xFF9C27B0)
+                            "Sativa" -> Color(0xFFFF9800)
+                            else -> Color(0xFF4CAF50)
+                        }
+                        JournalBadge(strain.category, catColor)
+                        if (strain.thcPercentage > 0) JournalBadge("THC ${strain.thcPercentage.toInt()}%", MaterialTheme.colorScheme.secondary)
+                        if (strain.cbdPercentage > 0) JournalBadge("CBD ${strain.cbdPercentage.toInt()}%", MaterialTheme.colorScheme.tertiary)
+                    }
+
+                    if (strain.notes.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                        Text(strain.notes, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val cardSummary = buildString {
+                    appendLine("🌿 GreenTracker Strain Card: ${strain.strainName}")
+                    if (strain.producerCultivar.isNotEmpty()) appendLine("👤 Producer: ${strain.producerCultivar}")
+                    appendLine("🏷️ Category: ${strain.category}")
+                    if (strain.thcPercentage > 0) appendLine("⚡ THC: ${strain.thcPercentage.toInt()}%")
+                    if (strain.cbdPercentage > 0) appendLine("💧 CBD: ${strain.cbdPercentage.toInt()}%")
+                    val ratingStr = when(strain.rating) { "THUMBS_DOWN" -> "Avoid"; "NEUTRAL" -> "Neutral"; else -> "Recommended" }
+                    appendLine("⭐ Rating: $ratingStr")
+                    if (strain.notes.isNotEmpty()) appendLine("📝 Notes: ${strain.notes}")
+                }
+                try {
+                    window.navigator.clipboard.writeText(cardSummary)
+                    copySuccess = true
+                } catch(e: Exception) {
+                    copySuccess = true
+                }
+            }) {
+                Icon(Icons.Default.Share, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (copySuccess) "Copied!".translate(lang) else "Copy Card Summary".translate(lang))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel".translate(lang))
+            }
+        }
+    )
 }
 
 @Composable
@@ -407,7 +661,11 @@ fun HomeScreen(
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         Column {
                             Row(verticalAlignment = Alignment.Bottom) {
-                                val bigGramColor = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else Color(0xFF2E7D32)
+                                val bigGramColor = when {
+                                    totalTodayGrams > dailyGoalGrams -> MaterialTheme.colorScheme.error
+                                    totalTodayGrams >= dailyGoalGrams && dailyGoalGrams > 0.0 -> Color(0xFFFF8F00)
+                                    else -> Color(0xFF2E7D32)
+                                }
                                 Text(text = totalTodayGrams.format(1, lang), style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, color = bigGramColor))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(text = "g", style = MaterialTheme.typography.titleMedium.copy(color = bigGramColor, fontWeight = FontWeight.Bold), modifier = Modifier.padding(bottom = 8.dp))
@@ -427,7 +685,16 @@ fun HomeScreen(
                             Text(text = "${sessionsToday.size}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface))
                         }
                     }
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)), color = if (totalTodayGrams > dailyGoalGrams) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
+                        color = when {
+                            totalTodayGrams > dailyGoalGrams -> MaterialTheme.colorScheme.error
+                            totalTodayGrams >= dailyGoalGrams && dailyGoalGrams > 0.0 -> Color(0xFFFF8F00)
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(text = "0.0g", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold))
@@ -936,7 +1203,15 @@ fun StatInsightCard(title: String, value: String, icon: androidx.compose.ui.grap
 }
 
 @Composable
-fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeViewModel, activeAppIconIndex: Int, onEdit: (StrainEntry) -> Unit, onZoom: (String) -> Unit) {
+fun JournalScreen(
+    strains: List<StrainEntry>,
+    lang: String,
+    viewModel: SmokeViewModel,
+    activeAppIconIndex: Int,
+    onEdit: (StrainEntry) -> Unit,
+    onGalleryOpen: (StrainEntry, Int) -> Unit,
+    onShareCardOpen: (StrainEntry) -> Unit
+) {
     val listState = rememberLazyListState()
     var search by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
@@ -978,21 +1253,35 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
         Spacer(modifier = Modifier.height(16.dp))
         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
             items(filtered) { strain ->
+                val photoList = remember(strain.photoUri) { strain.getPhotoUris() }
                 var showDeleteConfirm by remember { mutableStateOf(false) }
                 if (showDeleteConfirm) {
                     AlertDialog(onDismissRequest = {}, title = { Text("Delete Entry?".translate(lang)) }, text = { Text("Move this entry to the trash?".translate(lang)) }, confirmButton = { Button(onClick = { viewModel.deleteStrain(strain.id); showDeleteConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete".translate(lang)) } }, dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel".translate(lang)) } })
                 }
                 Card(shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)), modifier = Modifier.fillMaxWidth()) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        // Left: Photo + Rating Badge
+                        // Left: Photo + Badges
                         Box(modifier = Modifier.size(72.dp)) {
-                            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { if (strain.photoUri.isNotEmpty()) onZoom(strain.photoUri) }, contentAlignment = Alignment.Center) {
-                                if (strain.photoUri.isNotEmpty()) {
-                                    val bitmap = remember(strain.photoUri) { try { val base64Data = if (strain.photoUri.contains(",")) strain.photoUri.split(",")[1] else strain.photoUri; com.example.util.Base64.decode(base64Data).decodeToImageBitmap() } catch (e: Exception) { null } }
+                            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { if (photoList.isNotEmpty()) onGalleryOpen(strain, 0) }, contentAlignment = Alignment.Center) {
+                                if (photoList.isNotEmpty()) {
+                                    val bitmap = remember(photoList[0]) {
+                                        try {
+                                            val base64Data = if (photoList[0].contains(",")) photoList[0].split(",")[1] else photoList[0]
+                                            Base64.decode(base64Data).decodeToImageBitmap()
+                                        } catch (e: Exception) { null }
+                                    }
                                     if (bitmap != null) Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                     else Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
                                 } else Image(painter = getAppIconPainter(activeAppIconIndex), contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
                             }
+
+                            // Photo Count Badge
+                            if (photoList.size > 1) {
+                                Surface(modifier = Modifier.align(Alignment.TopStart).padding(2.dp), shape = RoundedCornerShape(4.dp), color = Color.Black.copy(alpha = 0.7f)) {
+                                    Text("${photoList.size} 📷", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                }
+                            }
+
                             // Rating Badge overlay
                             val (rIcon, rColor) = when {
                                 strain.needsReview -> Icons.Default.Timer to MaterialTheme.colorScheme.tertiary
@@ -1015,7 +1304,6 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                             Spacer(modifier = Modifier.height(8.dp))
                             
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                                // Category Badge
                                 val catColor = when(strain.category) { "Indica" -> Color(0xFF9C27B0); "Sativa" -> Color(0xFFFF9800); else -> Color(0xFF4CAF50) }
                                 JournalBadge(strain.category, catColor)
                                 
@@ -1030,12 +1318,15 @@ fun JournalScreen(strains: List<StrainEntry>, lang: String, viewModel: SmokeView
                         }
 
                         // Right: Actions
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { onEdit(strain) }, modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape)) {
-                                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { onShareCardOpen(strain) }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f), CircleShape)) {
+                                Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                             }
-                            IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f), CircleShape)) {
-                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                            IconButton(onClick = { onEdit(strain) }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape)) {
+                                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            }
+                            IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f), CircleShape)) {
+                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -1203,9 +1494,17 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("App Maintenance".translate(lang), expandedSection == "maint", onToggle = { onToggleSection(if (expandedSection == "maint") null else "maint") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Check for updates or refresh the app cache.".translate(lang), style = MaterialTheme.typography.bodySmall); Button(onClick = { forceAppUpdate() }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Refresh, null); Spacer(Modifier.width(8.dp)); Text("Check for Updates / Refresh".translate(lang)) } }
         } }
-        item { var v135 by remember { mutableStateOf(false) }; var v132 by remember { mutableStateOf(false) }; var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
+        item { var v140 by remember { mutableStateOf(true) }; var v135 by remember { mutableStateOf(false) }; var v132 by remember { mutableStateOf(false) }; var v122 by remember { mutableStateOf(false) }; var v120 by remember { mutableStateOf(false) }; var v118 by remember { mutableStateOf(false) }; var v100 by remember { mutableStateOf(false) }
             CollapsibleSettingsCard(title = "Changelog".translate(lang), isExpanded = expandedSection == "changelog", onToggle = { onToggleSection(if (expandedSection == "changelog") null else "changelog") }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CollapsibleSubSection(title = "Version 1.4.0", isExpanded = v140, onToggle = { v140 = !v140 }) {
+                        ChangelogDetailText("• " + "Journal Multi-Photo: Attach up to 3 photos per strain entry".translate(lang))
+                        ChangelogDetailText("• " + "Cover Photo & Favorite: Set any photo as the primary cover photo".translate(lang))
+                        ChangelogDetailText("• " + "Fullscreen Gallery: Swipe through photos with thumbnail preview strip".translate(lang))
+                        ChangelogDetailText("• " + "Strain Share & Business Card: Share strain entries as digital business cards".translate(lang))
+                        ChangelogDetailText("• " + "Theme Warning Colors: Amber warning indicator when reaching daily limit".translate(lang))
+                        ChangelogDetailText("• " + "Auto Language Detection: System language detection on first launch".translate(lang))
+                    }
                     CollapsibleSubSection(title = "Version 1.3.5", isExpanded = v135, onToggle = { v135 = !v135 }) {
                         ChangelogDetailText("• " + "Limit Confirmation: Mandatory dialog when reaching daily limits".translate(lang))
                         ChangelogDetailText("• " + "Log Debouncing: 2-second cooldown to prevent double-logs".translate(lang))
@@ -1266,7 +1565,7 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Danger Zone".translate(lang), expandedSection == "danger", onToggle = { onToggleSection(if (expandedSection == "danger") null else "danger") }) {
             Button(onClick = { showClearAllConfirm = true }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red), modifier = Modifier.fillMaxWidth()) { Text("Clear All Data".translate(lang)) }
         } }
-        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.3.5", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)); Spacer(Modifier.height(8.dp)); Text("Human Vision & AI Power", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) } } }
+        item { Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("GreenTracker", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)); Text("Version 1.4.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)); Spacer(Modifier.height(8.dp)); Text("Human Vision & AI Power", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f), fontStyle = FontStyle.Italic)) } } }
     }
 }
 
@@ -1479,30 +1778,95 @@ fun AddManualSessionDialog(
 
 @Composable
 fun AddEditStrainDialog(initial: StrainEntry?, lang: String, viewModel: SmokeViewModel, onDismiss: () -> Unit, onSave: (String, String, String, Double, Double, String, String, String, Boolean) -> Unit) {
-    var name by remember { mutableStateOf(initial?.strainName ?: "") }; var prod by remember { mutableStateOf(initial?.producerCultivar ?: "") }; var cat by remember { mutableStateOf(initial?.category ?: "Hybrid") }; var photo by remember { mutableStateOf(initial?.photoUri ?: "") }; var rat by remember { mutableStateOf(initial?.rating ?: "THUMBS_UP") }; var thcT by remember { mutableStateOf(if (initial != null && initial.thcPercentage > 0) initial.thcPercentage.toInt().toString() else "") }; var cbdT by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toInt().toString() else "") }; var nts by remember { mutableStateOf(initial?.notes ?: "") }
+    var name by remember { mutableStateOf(initial?.strainName ?: "") }
+    var prod by remember { mutableStateOf(initial?.producerCultivar ?: "") }
+    var cat by remember { mutableStateOf(initial?.category ?: "Hybrid") }
+    var photoList by remember { mutableStateOf(initial?.getPhotoUris() ?: emptyList()) }
+    var rat by remember { mutableStateOf(initial?.rating ?: "THUMBS_UP") }
+    var thcT by remember { mutableStateOf(if (initial != null && initial.thcPercentage > 0) initial.thcPercentage.toInt().toString() else "") }
+    var cbdT by remember { mutableStateOf(if (initial != null && initial.cbdPercentage > 0) initial.cbdPercentage.toInt().toString() else "") }
+    var nts by remember { mutableStateOf(initial?.notes ?: "") }
     var needsReview by remember { mutableStateOf(initial?.needsReview ?: false) }
-    AlertDialog(onDismissRequest = {}, title = { Text(if (initial == null) "Add Strain".translate(lang) else "Edit Strain".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) { 
-        if (photo.isNotEmpty()) { Box(modifier = Modifier.size(100.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { photo = "" }, contentAlignment = Alignment.Center) { val bitmap = remember(photo) { try { val base64Data = if (photo.contains(",")) photo.split(",")[1] else photo; com.example.util.Base64.decode(base64Data).decodeToImageBitmap() } catch (e: Exception) { null } }; if (bitmap != null) { Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()); Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape)) { Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(16.dp)) } } else { Text("Error loading", fontSize = 10.sp) } } } else { Button(onClick = { triggerImagePicker { photo = it } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.AddAPhoto, null); Spacer(Modifier.width(8.dp)); Text("Add Photo".translate(lang)) } }; 
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth(), singleLine = true); 
-        OutlinedTextField(value = prod, onValueChange = { prod = it }, label = { Text("Producer".translate(lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true); 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
-            OutlinedTextField(value = thcT, onValueChange = { if (it.all { c -> c.isDigit() }) { if ((it.toDoubleOrNull() ?: 0.0) <= 100.0) thcT = it } }, label = { Text("THC %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true); 
-            OutlinedTextField(value = cbdT, onValueChange = { if (it.all { c -> c.isDigit() }) { if ((it.toDoubleOrNull() ?: 0.0) <= 100.0) cbdT = it } }, label = { Text("CBD %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true) 
-        }; 
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
-            listOf("Indica", "Sativa", "Hybrid").forEach { c -> FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text(c) }, modifier = Modifier.weight(1f)) } 
-        }; 
-        Text("Rating".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp); 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
-            SelectableRatingItem(selected = !needsReview && rat == "THUMBS_UP", icon = Icons.Default.ThumbUp, label = "Recommended".translate(lang), color = Color(0xFF2E7D32), onClick = { rat = "THUMBS_UP"; needsReview = false }, modifier = Modifier.weight(1f)); 
-            SelectableRatingItem(selected = !needsReview && rat == "NEUTRAL", icon = Icons.Default.SentimentNeutral, label = "Neutral".translate(lang), color = Color.Gray, onClick = { rat = "NEUTRAL"; needsReview = false }, modifier = Modifier.weight(1f)); 
-        }; 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) { 
-            SelectableRatingItem(selected = !needsReview && rat == "THUMBS_DOWN", icon = Icons.Default.ThumbDown, label = "Avoid".translate(lang), color = Color.Red, onClick = { rat = "THUMBS_DOWN"; needsReview = false }, modifier = Modifier.weight(1f)); 
-            SelectableRatingItem(selected = needsReview, icon = Icons.Default.Timer, label = "Review Later".translate(lang), color = MaterialTheme.colorScheme.tertiary, onClick = { needsReview = true }, modifier = Modifier.weight(1f)) 
-        }; 
-        OutlinedTextField(value = nts, onValueChange = { nts = it }, label = { Text("Notes (Optional)...".translate(lang)) }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4)
-    } }, confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onSave(name, prod, cat, (thcT.toDoubleOrNull() ?: 0.0), (cbdT.toDoubleOrNull() ?: 0.0), rat, nts, photo, needsReview) }) { Text("Save".translate(lang)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } })
+
+    val photo = photoList.joinToString("|")
+
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(if (initial == null) "Add Strain".translate(lang) else "Edit Strain".translate(lang), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Photos (${photoList.size}/3)".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        photoList.forEachIndexed { index, pUri ->
+                            Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                                val bitmap = remember(pUri) {
+                                    try {
+                                        val base64Data = if (pUri.contains(",")) pUri.split(",")[1] else pUri
+                                        Base64.decode(base64Data).decodeToImageBitmap()
+                                    } catch (e: Exception) { null }
+                                }
+                                if (bitmap != null) {
+                                    Image(bitmap = bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clickable {
+                                        if (index != 0) {
+                                            photoList = listOf(pUri) + (photoList - pUri)
+                                        }
+                                    })
+                                }
+                                if (index == 0) {
+                                    Surface(color = Color(0xFFE91E63), shape = RoundedCornerShape(8.dp), modifier = Modifier.align(Alignment.TopStart).padding(2.dp)) {
+                                        Icon(Icons.Default.Favorite, null, tint = Color.White, modifier = Modifier.padding(2.dp).size(10.dp))
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { photoList = photoList - pUri },
+                                    modifier = Modifier.align(Alignment.TopEnd).size(22.dp).background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                }
+                            }
+                        }
+                        if (photoList.size < 3) {
+                            OutlinedButton(
+                                onClick = { triggerImagePicker { newImg -> photoList = photoList + newImg } },
+                                modifier = Modifier.size(80.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    Icon(Icons.Default.AddAPhoto, null, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.height(2.dp))
+                                    Text("Add".translate(lang), fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = prod, onValueChange = { prod = it }, label = { Text("Producer".translate(lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = thcT, onValueChange = { if (it.all { c -> c.isDigit() }) { if ((it.toDoubleOrNull() ?: 0.0) <= 100.0) thcT = it } }, label = { Text("THC %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                    OutlinedTextField(value = cbdT, onValueChange = { if (it.all { c -> c.isDigit() }) { if ((it.toDoubleOrNull() ?: 0.0) <= 100.0) cbdT = it } }, label = { Text("CBD %") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("Indica", "Sativa", "Hybrid").forEach { c -> FilterChip(selected = cat == c, onClick = { cat = c }, label = { Text(c) }, modifier = Modifier.weight(1f)) }
+                }
+                Text("Rating".translate(lang), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SelectableRatingItem(selected = !needsReview && rat == "THUMBS_UP", icon = Icons.Default.ThumbUp, label = "Recommended".translate(lang), color = Color(0xFF2E7D32), onClick = { rat = "THUMBS_UP"; needsReview = false }, modifier = Modifier.weight(1f))
+                    SelectableRatingItem(selected = !needsReview && rat == "NEUTRAL", icon = Icons.Default.SentimentNeutral, label = "Neutral".translate(lang), color = Color.Gray, onClick = { rat = "NEUTRAL"; needsReview = false }, modifier = Modifier.weight(1f))
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SelectableRatingItem(selected = !needsReview && rat == "THUMBS_DOWN", icon = Icons.Default.ThumbDown, label = "Avoid".translate(lang), color = Color.Red, onClick = { rat = "THUMBS_DOWN"; needsReview = false }, modifier = Modifier.weight(1f))
+                    SelectableRatingItem(selected = needsReview, icon = Icons.Default.Timer, label = "Review Later".translate(lang), color = MaterialTheme.colorScheme.tertiary, onClick = { needsReview = true }, modifier = Modifier.weight(1f))
+                }
+                OutlinedTextField(value = nts, onValueChange = { nts = it }, label = { Text("Notes (Optional)...".translate(lang)) }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4)
+            }
+        },
+        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onSave(name, prod, cat, (thcT.toDoubleOrNull() ?: 0.0), (cbdT.toDoubleOrNull() ?: 0.0), rat, nts, photo, needsReview) }) { Text("Save".translate(lang)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel".translate(lang)) } }
+    )
 }
 
 @Composable

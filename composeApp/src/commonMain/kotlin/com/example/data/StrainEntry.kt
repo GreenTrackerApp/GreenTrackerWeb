@@ -19,3 +19,8 @@ data class StrainEntry(
     val isDeleted: Boolean = false,
     val deletedAt: Long? = null
 )
+
+fun StrainEntry.getPhotoUris(): List<String> {
+    if (photoUri.isBlank()) return emptyList()
+    return photoUri.split("|").filter { it.isNotBlank() }
+}
