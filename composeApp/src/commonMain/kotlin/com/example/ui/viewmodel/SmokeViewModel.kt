@@ -62,6 +62,16 @@ class SmokeViewModel(
     private val _activeAppIconIndex = MutableStateFlow(settings.getInt("active_app_icon_index", 1))
     val activeAppIconIndex: StateFlow<Int> = _activeAppIconIndex.asStateFlow()
 
+    // Vacation / T-Break Mode State
+    private val _vacationStartTs = MutableStateFlow(settings.getLong("vacation_start_ts", 0L))
+    val vacationStartTs: StateFlow<Long> = _vacationStartTs.asStateFlow()
+
+    private val _vacationEndTs = MutableStateFlow(settings.getLong("vacation_end_ts", 0L))
+    val vacationEndTs: StateFlow<Long> = _vacationEndTs.asStateFlow()
+
+    private val _isVacationActive = MutableStateFlow(settings.getBoolean("vacation_active", false))
+    val isVacationActive: StateFlow<Boolean> = _isVacationActive.asStateFlow()
+
     // Streams
     val allSessions: StateFlow<List<SmokeSession>> = repository.allSessions
         .map { list -> list.filter { !it.isDeleted } }
@@ -224,6 +234,38 @@ class SmokeViewModel(
     fun setReviewReminderDays(days: Int) {
         _reviewReminderDays.value = days
         settings.putInt("review_reminder_days", days)
+    }
+
+    fun setVacationRange(startTs: Long, endTs: Long) {
+        _vacationStartTs.value = startTs
+        _vacationEndTs.value = endTs
+        _isVacationActive.value = true
+        settings.putLong("vacation_start_ts", startTs)
+        settings.putLong("vacation_end_ts", endTs)
+        settings.putBoolean("vacation_active", true)
+    }
+
+    fun clearVacationMode() {
+        _vacationStartTs.value = 0L
+        _vacationEndTs.value = 0L
+        _isVacationActive.value = false
+        settings.putLong("vacation_start_ts", 0L)
+        settings.putLong("vacation_end_ts", 0L)
+        settings.putBoolean("vacation_active", false)
+    }
+
+    fun checkVacationStatus(nowTs: Long = Clock.System.now().toEpochMilliseconds()): Boolean {
+        if (!_isVacationActive.value) return false
+        val start = _vacationStartTs.value
+        val end = _vacationEndTs.value
+        if (start > 0 && end > 0) {
+            if (nowTs in start..end) return true
+            if (nowTs > end) {
+                clearVacationMode()
+                return false
+            }
+        }
+        return _isVacationActive.value
     }
 
     private fun loadSavedTheme() = CannabisTheme.entries.find { it.id == settings.getString("active_theme_id", "") } ?: CannabisTheme.CLASSIC_HERBAL
@@ -548,6 +590,15 @@ fun String.translate(lang: String): String {
         "Save" -> "Speichern"
         "Add Photo" -> "Foto hinzufügen"
         "Notes (Optional)..." -> "Notizen (optional)"
+        "Vacation & T-Break Mode" -> "Verbrauchspause & Urlaub"
+        "Set a date range for a consumption break or vacation." -> "Lege einen Zeitraum für eine Verbrauchspause oder Urlaub fest."
+        "Vacation Mode Active" -> "Verbrauchspause aktiv"
+        "End Pause" -> "Pause beenden"
+        "Consumption Report (PDF / Print)" -> "Verbrauchsbericht (PDF / Druck)"
+        "Print / Save PDF" -> "Bericht drucken / PDF speichern"
+        "Print Report" -> "Bericht drucken"
+        "Select Period" -> "Zeitraum wählen"
+        "Quick Presets" -> "Schnellwahl"
         "Journal Multi-Photo: Attach up to 3 photos per strain entry" -> "Journal Multi-Foto: Bis zu 3 Fotos pro Sorteneintrag anfügen"
         "Cover Photo & Favorite: Set any photo as the primary cover photo" -> "Titelbild & Favorit: Jedes Foto als Haupt-Titelbild festlegbar"
         "Fullscreen Gallery: Swipe through photos with thumbnail preview strip" -> "Vollbild-Galerie: Fotos wischen mit Miniaturbild-Vorschau"

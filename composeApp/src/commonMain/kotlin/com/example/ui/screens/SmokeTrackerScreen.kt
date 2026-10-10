@@ -652,8 +652,37 @@ fun HomeScreen(
     val progress = if (dailyGoalGrams > 0.0) (totalTodayGrams / dailyGoalGrams).toFloat().coerceIn(0f, 1f) else 0f
     val quickLogGrams by viewModel.quickLogGrams.collectAsState()
     val maxDosage by viewModel.widgetMaxDosage.collectAsState()
+    val isVacationActive by viewModel.isVacationActive.collectAsState()
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+        if (isVacationActive) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20)),
+                    border = BorderStroke(1.dp, Color(0xFF81C784).copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("🌴", fontSize = 24.sp)
+                            Column {
+                                Text("Vacation Mode Active".translate(lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("Set a date range for a consumption break or vacation.".translate(lang), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
+                            }
+                        }
+                        TextButton(onClick = { viewModel.clearVacationMode() }) {
+                            Text("End Pause".translate(lang), color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))) {
                 Column(modifier = Modifier.padding(20.dp)) {
@@ -728,7 +757,27 @@ fun HomeScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Quick Presets".translate(lang) + ":", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                        listOf(0.1, 0.2, 0.5, 1.0).forEach { presetGrams ->
+                            val isSel = (quickLogGrams - presetGrams).let { kotlin.math.abs(it) < 0.05 }
+                            Surface(
+                                onClick = { viewModel.setQuickLogGrams(presetGrams) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                contentColor = if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                            ) {
+                                Text("${presetGrams}g", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     Slider(
                         value = quickLogGrams.toFloat(), 
                         onValueChange = { viewModel.setQuickLogGrams(it.toDouble()) }, 
@@ -1354,12 +1403,25 @@ fun JournalBadge(text: String, color: Color) {
 @Composable
 fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyGoalGrams: Double, lang: String, trashedSessions: List<SmokeSession>, trashedStrains: List<StrainEntry>, activeAppIconIndex: Int, expandedSection: String?, onToggleSection: (String?) -> Unit, onNavigateToPrivacy: () -> Unit) {
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
+    val isVacationActive by viewModel.isVacationActive.collectAsState()
+    val vacationStartTs by viewModel.vacationStartTs.collectAsState()
+    val vacationEndTs by viewModel.vacationEndTs.collectAsState()
+    val allSessions by viewModel.allSessions.collectAsState()
+    var showPrintReportDialog by remember { mutableStateOf(false) }
     var isSessionsTrashExpanded by remember { mutableStateOf(false) }
     var isStrainsTrashExpanded by remember { mutableStateOf(false) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
 
     if (showClearAllConfirm) {
         AlertDialog(onDismissRequest = {}, title = { Text("Clear All Data?".translate(lang), color = MaterialTheme.colorScheme.error) }, text = { Text("This will permanently delete all logs and entries. This action cannot be undone!".translate(lang)) }, confirmButton = { Button(onClick = { viewModel.clearAll(); showClearAllConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete Everything".translate(lang)) } }, dismissButton = { TextButton(onClick = { showClearAllConfirm = false }) { Text("Cancel".translate(lang)) } })
+    }
+
+    if (showPrintReportDialog) {
+        PrintReportModalDialog(
+            allSessions = allSessions,
+            lang = lang,
+            onDismiss = { showPrintReportDialog = false }
+        )
     }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp)) {
@@ -1476,6 +1538,82 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
                 }
             }
         }
+        item {
+            CollapsibleSettingsCard(
+                title = "Vacation & T-Break Mode".translate(lang),
+                isExpanded = expandedSection == "vacation",
+                onToggle = { onToggleSection(if (expandedSection == "vacation") null else "vacation") }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Set a date range for a consumption break or vacation.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                triggerWebDatePicker { d ->
+                                    try {
+                                        val start = LocalDate.parse(d.trim()).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                        val end = if (vacationEndTs > start) vacationEndTs else start + 7 * 24 * 3600 * 1000L
+                                        viewModel.setVacationRange(start, end)
+                                    } catch(e: Exception){}
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Text(if (vacationStartTs > 0) "Von: ".translate(lang) + Instant.fromEpochMilliseconds(vacationStartTs).toLocalDateTime(TimeZone.currentSystemDefault()).let { "${it.dayOfMonth}.${it.monthNumber}.${it.year}" } else "Select Start Date".translate(lang), fontSize = 11.sp, maxLines = 1)
+                        }
+
+                        Button(
+                            onClick = {
+                                triggerWebDatePicker { d ->
+                                    try {
+                                        val end = LocalDate.parse(d.trim()).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds() + 24 * 3600 * 1000L - 1L
+                                        val start = if (vacationStartTs > 0) vacationStartTs else Clock.System.now().toEpochMilliseconds()
+                                        viewModel.setVacationRange(start, end)
+                                    } catch(e: Exception){}
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Text(if (vacationEndTs > 0) "Bis: ".translate(lang) + Instant.fromEpochMilliseconds(vacationEndTs).toLocalDateTime(TimeZone.currentSystemDefault()).let { "${it.dayOfMonth}.${it.monthNumber}.${it.year}" } else "Select End Date".translate(lang), fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+
+                    if (isVacationActive) {
+                        Button(
+                            onClick = { viewModel.clearVacationMode() },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("End Pause".translate(lang), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            CollapsibleSettingsCard(
+                title = "Consumption Report (PDF / Print)".translate(lang),
+                isExpanded = expandedSection == "report",
+                onToggle = { onToggleSection(if (expandedSection == "report") null else "report") }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Generates a clean consumption report for printing or saving as PDF.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    Button(
+                        onClick = { showPrintReportDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Print, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Print / Save PDF".translate(lang), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         item { CollapsibleSettingsCard("Daily Dosage Limit".translate(lang), expandedSection == "limit", onToggle = { onToggleSection(if (expandedSection == "limit") null else "limit") }) {
             Text(dailyGoalGrams.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = dailyGoalGrams.toFloat(), onValueChange = { viewModel.setDailyGoal(it.toDouble()) }, valueRange = 0.0f..10.0f)
         } }
@@ -1908,6 +2046,156 @@ fun triggerImagePicker(onBase64: (String) -> Unit) {
         } 
     }
     input.click()
+}
+
+@Composable
+fun PrintReportModalDialog(
+    allSessions: List<SmokeSession>,
+    lang: String,
+    onDismiss: () -> Unit
+) {
+    var periodMode by remember { mutableStateOf("MONTH") }
+    var customStartTs by remember { mutableStateOf<Long?>(null) }
+    var customEndTs by remember { mutableStateOf<Long?>(null) }
+
+    val filteredSessions = remember(allSessions, periodMode, customStartTs, customEndTs) {
+        val now = Clock.System.now().toEpochMilliseconds()
+        when (periodMode) {
+            "MONTH" -> allSessions.filter { it.timestamp >= now - 30 * 24 * 3600 * 1000L }
+            "YEAR" -> allSessions.filter { it.timestamp >= now - 365 * 24 * 3600 * 1000L }
+            "CUSTOM" -> allSessions.filter { s ->
+                val after = customStartTs?.let { s.timestamp >= it } ?: true
+                val before = customEndTs?.let { s.timestamp <= it + 24 * 3600 * 1000L - 1L } ?: true
+                after && before
+            }
+            else -> allSessions
+        }
+    }
+
+    val totalGrams = filteredSessions.sumOf { it.grams }.roundToDecimals(1)
+    val sessionCount = filteredSessions.size
+    val daysCount = if (filteredSessions.isEmpty()) 1 else filteredSessions.map { Instant.fromEpochMilliseconds(it.timestamp).toLocalDateTime(TimeZone.currentSystemDefault()).date }.toSet().size
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Print, null, tint = MaterialTheme.colorScheme.primary)
+                Text("Consumption Report (PDF / Print)".translate(lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Select Period".translate(lang), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = periodMode == "MONTH",
+                        onClick = { periodMode = "MONTH" },
+                        label = { Text("This Month".translate(lang), fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = periodMode == "YEAR",
+                        onClick = { periodMode = "YEAR" },
+                        label = { Text("This Year".translate(lang), fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = periodMode == "CUSTOM",
+                        onClick = { periodMode = "CUSTOM" },
+                        label = { Text("Custom Range".translate(lang), fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (periodMode == "CUSTOM") {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                triggerWebDatePicker { d ->
+                                    try {
+                                        customStartTs = LocalDate.parse(d.trim()).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                    } catch(e: Exception){}
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Text(customStartTs?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { "${it.dayOfMonth}.${it.monthNumber}.${it.year}" } } ?: "Select Start Date".translate(lang), fontSize = 10.sp, maxLines = 1)
+                        }
+
+                        Button(
+                            onClick = {
+                                triggerWebDatePicker { d ->
+                                    try {
+                                        customEndTs = LocalDate.parse(d.trim()).atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+                                    } catch(e: Exception){}
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Text(customEndTs?.let { Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).let { "${it.dayOfMonth}.${it.monthNumber}.${it.year}" } } ?: "Select End Date".translate(lang), fontSize = 10.sp, maxLines = 1)
+                        }
+                    }
+                }
+
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Usage Summary".translate(lang), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("Total Grams: ${totalGrams}g", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        Text("Total Sessions: $sessionCount", style = MaterialTheme.typography.bodySmall)
+                        Text("Logged Days: $daysCount", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val reportTitle = when(periodMode) {
+                        "MONTH" -> "Monatsbericht"
+                        "YEAR" -> "Jahresbericht"
+                        else -> "Verbrauchsbericht"
+                    }
+                    triggerPrintReport(reportTitle, totalGrams, sessionCount, daysCount, filteredSessions)
+                    onDismiss()
+                }
+            ) {
+                Icon(Icons.Default.Print, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Print Report".translate(lang))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel".translate(lang))
+            }
+        }
+    )
+}
+
+fun triggerPrintReport(title: String, totalGrams: Double, sessionCount: Int, daysCount: Int, sessions: List<SmokeSession>) {
+    val reportHtml = buildString {
+        appendLine("<!DOCTYPE html><html><head><meta charset='UTF-8'><title>$title</title>")
+        appendLine("<style>body{font-family:sans-serif;padding:20px;color:#222;} h1{color:#2E7D32;} .stats{display:flex;gap:16px;margin-bottom:20px;} .card{background:#f4f4f4;padding:12px 16px;border-radius:10px;flex:1;} table{width:100%;border-collapse:collapse;margin-top:10px;} th,td{border:1px solid #ddd;padding:8px;text-align:left;} th{background:#4CAF50;color:white;}</style>")
+        appendLine("</head><body>")
+        appendLine("<h1>🌿 GreenTracker - $title</h1>")
+        appendLine("<div class='stats'><div class='card'><h3>Gesamtmenge</h3><p style='font-size:20px;font-weight:bold;'>${totalGrams}g</p></div><div class='card'><h3>Sitzungen</h3><p style='font-size:20px;font-weight:bold;'>$sessionCount</p></div><div class='card'><h3>Tage</h3><p style='font-size:20px;font-weight:bold;'>$daysCount</p></div></div>")
+        appendLine("<h3>Sitzungsprotokoll</h3><table><tr><th>Datum & Uhrzeit</th><th>Sorte</th><th>Menge</th><th>Notizen</th></tr>")
+        sessions.forEach { s ->
+            val dt = Instant.fromEpochMilliseconds(s.timestamp).toLocalDateTime(TimeZone.currentSystemDefault())
+            val dateStr = "${dt.dayOfMonth}.${dt.monthNumber}.${dt.year} ${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}"
+            appendLine("<tr><td>$dateStr</td><td>${s.strain.ifEmpty { "N/A" }}</td><td>${s.grams}g</td><td>${s.notes}</td></tr>")
+        }
+        appendLine("</table></body></html>")
+    }
+    val printWindow = window.open("", "_blank")
+    if (printWindow != null) {
+        printWindow.document.write(reportHtml)
+        printWindow.document.close()
+        printWindow.print()
+    }
 }
 
 @Composable
