@@ -3,6 +3,7 @@ package com.example.ui.viewmodel
 import com.example.data.SmokeRepository
 import com.example.data.SmokeSession
 import com.example.data.StrainEntry
+import com.example.data.getPhotoUris
 import com.example.ui.theme.CannabisTheme
 import com.example.util.LogDebouncer
 import com.example.util.NotificationHelper
@@ -303,6 +304,19 @@ class SmokeViewModel(
         return json.encodeToString(data)
     }
 
+    fun createImagesMapJson(): String {
+        val map = mutableMapOf<String, String>()
+        repository.allStrains.value.forEach { strain ->
+            strain.getPhotoUris().forEachIndexed { index, uri ->
+                if (uri.isNotEmpty()) {
+                    val key = "strain_${strain.id}_$index"
+                    map[key] = uri
+                }
+            }
+        }
+        return json.encodeToString(map)
+    }
+
     fun importBackupJson(content: String): Boolean {
         return try {
             val data = json.decodeFromString<BackupData>(content)
@@ -318,6 +332,29 @@ class SmokeViewModel(
             true
         } catch (e: Exception) {
             false
+        }
+    }
+
+    fun generateCsvExport(): String {
+        return buildString {
+            appendLine("=== GREEN TRACKER CONSUMPTION LOGS ===")
+            appendLine("ID,Timestamp,Date,Grams,Strain,Notes")
+            allSessions.value.forEach { s ->
+                val dt = Instant.fromEpochMilliseconds(s.timestamp).toLocalDateTime(TimeZone.currentSystemDefault())
+                val dateStr = "${dt.dayOfMonth}.${dt.monthNumber}.${dt.year} ${dt.hour.toString().padStart(2,'0')}:${dt.minute.toString().padStart(2,'0')}"
+                val cleanStrain = s.strain.replace(",", ";")
+                val cleanNotes = s.notes.replace(",", ";")
+                appendLine("${s.id},${s.timestamp},\"$dateStr\",${s.grams},\"$cleanStrain\",\"$cleanNotes\"")
+            }
+            appendLine()
+            appendLine("=== GREEN TRACKER STRAIN JOURNAL ===")
+            appendLine("ID,Strain Name,Producer,Category,THC %,CBD %,Rating,Notes,Needs Review")
+            allStrains.value.forEach { st ->
+                val cleanName = st.strainName.replace(",", ";")
+                val cleanProd = st.producerCultivar.replace(",", ";")
+                val cleanNotes = st.notes.replace(",", ";")
+                appendLine("${st.id},\"$cleanName\",\"$cleanProd\",${st.category},${st.thcPercentage},${st.cbdPercentage},${st.rating},\"$cleanNotes\",${st.needsReview}")
+            }
         }
     }
 }
@@ -599,6 +636,12 @@ fun String.translate(lang: String): String {
         "Print Report" -> "Bericht drucken"
         "Select Period" -> "Zeitraum wählen"
         "Quick Presets" -> "Schnellwahl"
+        "Export Data as CSV" -> "Verbrauchsdaten als CSV exportieren"
+        "Export all consumption logs and strain entries as a .csv file for Excel." -> "Exportiere alle Verbrauchs-Logs und Sorteneinträge als .csv-Datei für Excel."
+        "CSV Export" -> "CSV Export"
+        "ZIP Backup & Restore" -> "ZIP-Backup & Wiederherstellung"
+        "Save ZIP Backup" -> "ZIP-Backup speichern"
+        "Import ZIP Backup" -> "ZIP-Backup importieren"
         "Journal Multi-Photo: Attach up to 3 photos per strain entry" -> "Journal Multi-Foto: Bis zu 3 Fotos pro Sorteneintrag anfügen"
         "Cover Photo & Favorite: Set any photo as the primary cover photo" -> "Titelbild & Favorit: Jedes Foto als Haupt-Titelbild festlegbar"
         "Fullscreen Gallery: Swipe through photos with thumbnail preview strip" -> "Vollbild-Galerie: Fotos wischen mit Miniaturbild-Vorschau"

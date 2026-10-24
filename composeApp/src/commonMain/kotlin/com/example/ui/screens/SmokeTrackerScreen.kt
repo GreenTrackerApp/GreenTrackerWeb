@@ -254,32 +254,44 @@ fun SmokeTrackerScreen(
                 .then(if (activeTheme == CannabisTheme.PRIDE) Modifier.background(Brush.verticalGradient(listOf(Color(0xFF0F0F1A), Color(0xFF1E1B4B), Color(0xFF312E81)))) else Modifier)
                 .padding(paddingValues)
         ) {
-            when (currentTab) {
-                AppTab.HOME -> {
-                    HomeScreen(
-                        viewModel, 
-                        activeTheme, 
-                        sessionsToday, 
-                        dailyGoalGrams, 
-                        activeLanguage, 
-                        activeAppIconIndex, 
-                        onLogRequest = { g, s, n, t -> requestLog(g, s, n, t) },
-                        onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it }
+            AnimatedContent(
+                targetState = currentTab,
+                transitionSpec = {
+                    if (targetState.ordinal > initialState.ordinal) {
+                        (slideInHorizontally { width -> width } + fadeIn()).togetherWith(slideOutHorizontally { width -> -width } + fadeOut())
+                    } else {
+                        (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(slideOutHorizontally { width -> width } + fadeOut())
+                    }
+                },
+                label = "tabTransition"
+            ) { tab ->
+                when (tab) {
+                    AppTab.HOME -> {
+                        HomeScreen(
+                            viewModel, 
+                            activeTheme, 
+                            sessionsToday, 
+                            dailyGoalGrams, 
+                            activeLanguage, 
+                            activeAppIconIndex, 
+                            onLogRequest = { g, s, n, t -> requestLog(g, s, n, t) },
+                            onNavigateToSettings = { currentTab = AppTab.SETTINGS; expandedSection = it }
+                        )
+                    }
+                    AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
+                    AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, activeAppIconIndex, viewModel)
+                    AppTab.JOURNAL -> JournalScreen(
+                        strains = allStrains,
+                        lang = activeLanguage,
+                        viewModel = viewModel,
+                        activeAppIconIndex = activeAppIconIndex,
+                        onEdit = { editingStrain = it; showAddStrainDialog = true },
+                        onGalleryOpen = { targetStrain, index -> galleryStrainPair = Pair(targetStrain, index) },
+                        onShareCardOpen = { targetStrain -> shareStrainCard = targetStrain }
                     )
+                    AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains, activeAppIconIndex, expandedSection, onToggleSection = { expandedSection = it }, onNavigateToPrivacy = { currentTab = AppTab.PRIVACY })
+                    AppTab.PRIVACY -> PrivacyPolicyScreen(activeLanguage, onBack = { currentTab = AppTab.SETTINGS })
                 }
-                AppTab.HISTORY -> HistoryScreen(allSessions, activeLanguage, viewModel, activeAppIconIndex)
-                AppTab.STATS -> StatsScreen(weeklyStats, allSessions, activeLanguage, activeAppIconIndex, viewModel)
-                AppTab.JOURNAL -> JournalScreen(
-                    strains = allStrains,
-                    lang = activeLanguage,
-                    viewModel = viewModel,
-                    activeAppIconIndex = activeAppIconIndex,
-                    onEdit = { editingStrain = it; showAddStrainDialog = true },
-                    onGalleryOpen = { targetStrain, index -> galleryStrainPair = Pair(targetStrain, index) },
-                    onShareCardOpen = { targetStrain -> shareStrainCard = targetStrain }
-                )
-                AppTab.SETTINGS -> SettingsScreen(viewModel, activeTheme, dailyGoalGrams, activeLanguage, trashedSessions, trashedStrains, activeAppIconIndex, expandedSection, onToggleSection = { expandedSection = it }, onNavigateToPrivacy = { currentTab = AppTab.PRIVACY })
-                AppTab.PRIVACY -> PrivacyPolicyScreen(activeLanguage, onBack = { currentTab = AppTab.SETTINGS })
             }
         }
     }
@@ -654,6 +666,9 @@ fun HomeScreen(
     val maxDosage by viewModel.widgetMaxDosage.collectAsState()
     val isVacationActive by viewModel.isVacationActive.collectAsState()
 
+    var barTapCount by remember { mutableIntStateOf(0) }
+    var lastBarTapTime by remember { mutableLongStateOf(0L) }
+
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
         if (isVacationActive) {
             item {
@@ -716,7 +731,19 @@ fun HomeScreen(
                     }
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
+                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).clickable {
+                            val now = Clock.System.now().toEpochMilliseconds()
+                            if (now - lastBarTapTime < 500) {
+                                barTapCount++
+                                if (barTapCount >= 3) {
+                                    barTapCount = 0
+                                    onNavigateToSettings("limit")
+                                }
+                            } else {
+                                barTapCount = 1
+                            }
+                            lastBarTapTime = now
+                        },
                         color = when {
                             totalTodayGrams > dailyGoalGrams -> MaterialTheme.colorScheme.error
                             totalTodayGrams >= dailyGoalGrams && dailyGoalGrams > 0.0 -> Color(0xFFFF8F00)
@@ -1267,7 +1294,7 @@ fun JournalScreen(
     var selectedRating by remember { mutableStateOf("All") }
     LaunchedEffect(strains.size) { if (strains.isNotEmpty()) listState.animateScrollToItem(0) }
     val filtered = strains.filter { s ->
-        (s.strainName.contains(search, ignoreCase = true) || s.producerCultivar.contains(search, ignoreCase = true) || s.category.contains(search, ignoreCase = true)) &&
+        (s.strainName.contains(search, ignoreCase = true) || s.producerCultivar.contains(search, ignoreCase = true) || s.category.contains(search, ignoreCase = true) || s.notes.contains(search, ignoreCase = true)) &&
         (selectedCategory == "All" || s.category == selectedCategory) && 
         (when(selectedRating) {
             "THUMBS_UP" -> s.rating == "THUMBS_UP" && !s.needsReview
@@ -1620,8 +1647,25 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { val maxD by viewModel.widgetMaxDosage.collectAsState(); CollapsibleSettingsCard("Slider Max Range".translate(lang), expandedSection == "max_dos", onToggle = { onToggleSection(if (expandedSection == "max_dos") null else "max_dos") }) {
             Text(maxD.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = maxD.toFloat(), onValueChange = { viewModel.setWidgetMaxDosage(it.toDouble()) }, valueRange = 1.0f..10.0f)
         } }
-        item { CollapsibleSettingsCard("Backup & Restore".translate(lang), expandedSection == "backup", onToggle = { onToggleSection(if (expandedSection == "backup") null else "backup") }) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { triggerDownload("GreenTracker_Backup.json", viewModel.createBackupJson()) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Save, null); Text("Save Backup".translate(lang)) }; Button(onClick = { triggerFilePicker { viewModel.importBackupJson(it) } }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Publish, null); Text("Import Backup".translate(lang)) } }
+        item { CollapsibleSettingsCard("ZIP Backup & Restore".translate(lang), expandedSection == "backup", onToggle = { onToggleSection(if (expandedSection == "backup") null else "backup") }) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
+                    Button(onClick = { triggerZipExport("GreenTracker_Backup.zip", viewModel.createBackupJson(), viewModel.createImagesMapJson()) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Archive, null); Text("Save ZIP Backup".translate(lang)) }
+                    Button(onClick = { triggerZipImport { jsonText, _ -> if (jsonText.isNotEmpty()) viewModel.importBackupJson(jsonText) } }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Unarchive, null); Text("Import ZIP Backup".translate(lang)) } 
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
+                    OutlinedButton(onClick = { triggerDownload("GreenTracker_Backup.json", viewModel.createBackupJson()) }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Save, null); Text("Save JSON".translate(lang)) }
+                    OutlinedButton(onClick = { triggerFilePicker { viewModel.importBackupJson(it) } }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.Publish, null); Text("Import JSON".translate(lang)) } 
+                }
+                OutlinedButton(
+                    onClick = { triggerDownload("GreenTracker_Export.csv", viewModel.generateCsvExport()) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.TableChart, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Export Data as CSV".translate(lang), fontWeight = FontWeight.Bold)
+                }
+            }
         } }
         item { CollapsibleSettingsCard("Trash".translate(lang), expandedSection == "trash", badgeCount = trashedSessions.size + trashedStrains.size, onToggle = { onToggleSection(if (expandedSection == "trash") null else "trash") }) {
             Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) { Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.HourglassBottom, null, tint = Color.Red, modifier = Modifier.size(20.dp)); Text("Deleted items are automatically removed after 7 days.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)) } }; Spacer(modifier = Modifier.height(16.dp))
@@ -2047,6 +2091,12 @@ fun triggerImagePicker(onBase64: (String) -> Unit) {
     }
     input.click()
 }
+
+@JsFun("(filename, jsonData, imagesJson) => { window.triggerZipExport(filename, jsonData, imagesJson); }")
+external fun triggerZipExport(filename: String, jsonData: String, imagesJson: String): Unit
+
+@JsFun("(onSuccess) => { window.triggerZipImport((jsonText, imagesJson) => { onSuccess(jsonText, imagesJson); }); }")
+external fun triggerZipImport(onSuccess: (String, String) -> Unit): Unit
 
 @Composable
 fun PrintReportModalDialog(
