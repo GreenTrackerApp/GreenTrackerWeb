@@ -575,6 +575,26 @@ fun StrainBusinessCardDialog(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                         Text(strain.notes, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurface)
                     }
+
+                    // QR Code Scanner Badge
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp).fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Scan QR Code for Strain Details".translate(lang), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text("${strain.strainName} • ${strain.category} • THC ${strain.thcPercentage.toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            }
+                            Icon(Icons.Default.QrCode2, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+                        }
+                    }
                 }
             }
         },
@@ -660,8 +680,9 @@ fun HomeScreen(
     onLogRequest: (Double, String, String, Long) -> Unit,
     onNavigateToSettings: (String) -> Unit
 ) {
+    val currentDailyLimit = viewModel.getDailyLimit()
     val totalTodayGrams = sessionsToday.sumOf { it.grams }
-    val progress = if (dailyGoalGrams > 0.0) (totalTodayGrams / dailyGoalGrams).toFloat().coerceIn(0f, 1f) else 0f
+    val progress = if (currentDailyLimit > 0.0) (totalTodayGrams / currentDailyLimit).toFloat().coerceIn(0f, 1f) else 0f
     val quickLogGrams by viewModel.quickLogGrams.collectAsState()
     val maxDosage by viewModel.widgetMaxDosage.collectAsState()
     val isVacationActive by viewModel.isVacationActive.collectAsState()
@@ -706,15 +727,15 @@ fun HomeScreen(
                         Column {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 val bigGramColor = when {
-                                    totalTodayGrams > dailyGoalGrams -> MaterialTheme.colorScheme.error
-                                    totalTodayGrams >= dailyGoalGrams && dailyGoalGrams > 0.0 -> Color(0xFFFF8F00)
+                                    totalTodayGrams > currentDailyLimit -> MaterialTheme.colorScheme.error
+                                    totalTodayGrams >= currentDailyLimit && currentDailyLimit > 0.0 -> Color(0xFFFF8F00)
                                     else -> Color(0xFF2E7D32)
                                 }
                                 Text(text = totalTodayGrams.format(1, lang), style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, color = bigGramColor))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(text = "g", style = MaterialTheme.typography.titleMedium.copy(color = bigGramColor, fontWeight = FontWeight.Bold), modifier = Modifier.padding(bottom = 8.dp))
                             }
-                            val excess = totalTodayGrams - dailyGoalGrams
+                            val excess = totalTodayGrams - currentDailyLimit
                             if (excess > 0.0) {
                                 Text(
                                     text = "(${"Excess".translate(lang)}: +${excess.format(1, lang)}g)",
@@ -745,8 +766,8 @@ fun HomeScreen(
                             lastBarTapTime = now
                         },
                         color = when {
-                            totalTodayGrams > dailyGoalGrams -> MaterialTheme.colorScheme.error
-                            totalTodayGrams >= dailyGoalGrams && dailyGoalGrams > 0.0 -> Color(0xFFFF8F00)
+                            totalTodayGrams > currentDailyLimit -> MaterialTheme.colorScheme.error
+                            totalTodayGrams >= currentDailyLimit && currentDailyLimit > 0.0 -> Color(0xFFFF8F00)
                             else -> MaterialTheme.colorScheme.primary
                         },
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -754,7 +775,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(text = "0.0g", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold))
-                        Text(text = "Max.:".translate(lang) + " ${dailyGoalGrams.format(1, lang)}g", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
+                        Text(text = "Max.:".translate(lang) + " ${currentDailyLimit.format(1, lang)}g", style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold))
                     }
                 }
             }
@@ -1430,6 +1451,8 @@ fun JournalBadge(text: String, color: Color) {
 @Composable
 fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyGoalGrams: Double, lang: String, trashedSessions: List<SmokeSession>, trashedStrains: List<StrainEntry>, activeAppIconIndex: Int, expandedSection: String?, onToggleSection: (String?) -> Unit, onNavigateToPrivacy: () -> Unit) {
     val dayRhythm by viewModel.dayRhythmHours.collectAsState()
+    val freeDaysMask by viewModel.freeDaysMask.collectAsState()
+    val freeDayGoalGrams by viewModel.freeDayGoalGrams.collectAsState()
     val isVacationActive by viewModel.isVacationActive.collectAsState()
     val vacationStartTs by viewModel.vacationStartTs.collectAsState()
     val vacationEndTs by viewModel.vacationEndTs.collectAsState()
@@ -1644,6 +1667,40 @@ fun SettingsScreen(viewModel: SmokeViewModel, activeTheme: CannabisTheme, dailyG
         item { CollapsibleSettingsCard("Daily Dosage Limit".translate(lang), expandedSection == "limit", onToggle = { onToggleSection(if (expandedSection == "limit") null else "limit") }) {
             Text(dailyGoalGrams.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = dailyGoalGrams.toFloat(), onValueChange = { viewModel.setDailyGoal(it.toDouble()) }, valueRange = 0.0f..10.0f)
         } }
+        item {
+            CollapsibleSettingsCard(
+                title = "Weekend & Free Days Limit".translate(lang),
+                isExpanded = expandedSection == "free_days",
+                onToggle = { onToggleSection(if (expandedSection == "free_days") null else "free_days") }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Set higher daily limits for specific days of the week.".translate(lang), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    
+                    Text("Free Days Limit".translate(lang) + ": ${freeDayGoalGrams.format(1, lang)}g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Slider(value = freeDayGoalGrams.toFloat(), onValueChange = { viewModel.setFreeDayGoal(it.toDouble()) }, valueRange = 0.0f..10.0f)
+
+                    Text("Active Free Days".translate(lang) + ":", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                        days.forEachIndexed { index, dayName ->
+                            val dayBit = 1 shl index
+                            val isSelected = (freeDaysMask and dayBit) != 0
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    val newMask = if (isSelected) freeDaysMask and dayBit.inv() else freeDaysMask or dayBit
+                                    viewModel.setFreeDaysMask(newMask)
+                                },
+                                label = { Text(dayName.translate(lang), fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
         item { val maxD by viewModel.widgetMaxDosage.collectAsState(); CollapsibleSettingsCard("Slider Max Range".translate(lang), expandedSection == "max_dos", onToggle = { onToggleSection(if (expandedSection == "max_dos") null else "max_dos") }) {
             Text(maxD.format(1) + "g", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Slider(value = maxD.toFloat(), onValueChange = { viewModel.setWidgetMaxDosage(it.toDouble()) }, valueRange = 1.0f..10.0f)
         } }

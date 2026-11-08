@@ -48,6 +48,13 @@ class SmokeViewModel(
     private val _dailyGoalGrams = MutableStateFlow(settings.getFloat("daily_goal_grams", 2.0f).toDouble())
     val dailyGoalGrams: StateFlow<Double> = _dailyGoalGrams.asStateFlow()
 
+    // Free Days Limit (Weekend/Custom Days Limit)
+    private val _freeDaysMask = MutableStateFlow(settings.getInt("free_days_mask", 96))
+    val freeDaysMask: StateFlow<Int> = _freeDaysMask.asStateFlow()
+
+    private val _freeDayGoalGrams = MutableStateFlow(settings.getFloat("free_day_goal_grams", 3.0f).toDouble())
+    val freeDayGoalGrams: StateFlow<Double> = _freeDayGoalGrams.asStateFlow()
+
     private val _widgetMaxDosage = MutableStateFlow(settings.getFloat("widget_max_dosage", 2.0f).toDouble())
     val widgetMaxDosage: StateFlow<Double> = _widgetMaxDosage.asStateFlow()
 
@@ -218,6 +225,25 @@ class SmokeViewModel(
     fun setDailyGoal(grams: Double) {
         _dailyGoalGrams.value = grams
         settings.putFloat("daily_goal_grams", grams.toFloat())
+    }
+    fun setFreeDaysMask(mask: Int) {
+        _freeDaysMask.value = mask
+        settings.putInt("free_days_mask", mask)
+    }
+    fun setFreeDayGoal(grams: Double) {
+        _freeDayGoalGrams.value = grams
+        settings.putFloat("free_day_goal_grams", grams.toFloat())
+    }
+    fun getDailyLimit(timestamp: Long = Clock.System.now().toEpochMilliseconds()): Double {
+        if (checkVacationStatus(timestamp)) {
+            return _freeDayGoalGrams.value
+        }
+        val rhythm = _dayRhythmHours.value
+        val logicalTime = timestamp - (rhythm * 3600 * 1000L)
+        val dt = Instant.fromEpochMilliseconds(logicalTime).toLocalDateTime(TimeZone.currentSystemDefault())
+        val dayBit = 1 shl dt.dayOfWeek.ordinal
+        val isFreeDay = (_freeDaysMask.value and dayBit) != 0
+        return if (isFreeDay) _freeDayGoalGrams.value else _dailyGoalGrams.value
     }
     fun setWidgetMaxDosage(grams: Double) {
         _widgetMaxDosage.value = grams
@@ -627,6 +653,11 @@ fun String.translate(lang: String): String {
         "Save" -> "Speichern"
         "Add Photo" -> "Foto hinzufügen"
         "Notes (Optional)..." -> "Notizen (optional)"
+        "Weekend & Free Days Limit" -> "Wochenend- & Freitage-Limit"
+        "Set higher daily limits for specific days of the week." -> "Lege für bestimmte Wochentage ein höheres Limit fest."
+        "Free Days Limit" -> "Freitage-Limit"
+        "Active Free Days" -> "Aktive Freitage"
+        "Scan QR Code for Strain Details" -> "QR-Code scannen für Sortendetails"
         "Vacation & T-Break Mode" -> "Verbrauchspause & Urlaub"
         "Set a date range for a consumption break or vacation." -> "Lege einen Zeitraum für eine Verbrauchspause oder Urlaub fest."
         "Vacation Mode Active" -> "Verbrauchspause aktiv"
